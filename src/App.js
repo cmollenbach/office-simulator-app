@@ -269,12 +269,12 @@ const App = () => {
       <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-6xl">
         <h1 className="text-4xl font-bold text-gray-900 mb-10 pb-6 text-center border-b-2 border-indigo-100">Office Seat Utilization Simulator</h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8"> {/* Adjusted gap for consistency */}
           {/* --- Column 1: Control Panel --- */}
-          <div className="bg-slate-50 p-6 rounded-xl shadow-lg border border-slate-200 flex flex-col">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-6 pb-3 border-b border-gray-300">Simulation Parameters</h2>
+          <div className="bg-white p-6 rounded-xl shadow-xl border border-gray-200 flex flex-col"> {/* Changed bg, stronger shadow */}
+            <h2 className="text-2xl font-semibold text-indigo-700 mb-6 pb-3 border-b-2 border-indigo-100">Simulation Parameters</h2> {/* Themed title */}
             {/* Input Section */}
-            <div className="space-y-6">
+            <div className="space-y-5"> {/* Slightly reduced space-y */}
               <div className="flex flex-col">
                 <label htmlFor="employees" className="text-gray-700 font-semibold mb-2 text-sm">Number of Employees:</label>
                 <input
@@ -282,7 +282,7 @@ const App = () => {
                   id="employees"
                   value={numEmployees}
                   onChange={(e) => setNumEmployees(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-150"
+                  className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out" /* rounded-md, better transition */
                   min="1"
                 />
               </div>
@@ -293,7 +293,7 @@ const App = () => {
                   id="deskRatio"
                   value={deskRatio}
                   onChange={(e) => setDeskRatio(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
-                  className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-150"
+                  className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out"
                   min="0.1"
                   step="0.05"
                 />
@@ -305,7 +305,7 @@ const App = () => {
                   id="stdDev"
                   value={stdDevPreference}
                   onChange={(e) => setStdDevPreference(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
-                  className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-150"
+                  className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out"
                   min="0.1"
                   step="0.1"
                 />
@@ -317,7 +317,7 @@ const App = () => {
                   id="simulations"
                   value={numSimulations}
                   onChange={(e) => setNumSimulations(Math.max(1000, parseInt(e.target.value, 10) || 1000))}
-                  className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-150"
+                  className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out"
                   min="1000"
                   step="1000"
                 />
@@ -327,7 +327,7 @@ const App = () => {
             {/* Run Simulation Button */}
             <button
               onClick={runAllSimulations} // This button remains in the input panel
-              className="w-full mt-8 bg-indigo-600 text-white py-3.5 px-6 rounded-lg font-semibold text-lg hover:bg-indigo-700 transition-colors duration-300 shadow-md hover:shadow-lg flex items-center justify-center"
+              className="w-full mt-8 bg-indigo-600 text-white py-3 px-6 rounded-md font-semibold text-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 ease-in-out shadow-md hover:shadow-lg flex items-center justify-center" /* rounded-md, focus states */
               disabled={isLoading}
             >
               {isLoading ? (
@@ -341,32 +341,32 @@ const App = () => {
           </div>
 
           {/* --- Column 2: Results Display --- */}
-          <div className="bg-slate-50 p-6 rounded-xl shadow-lg border border-slate-200 flex flex-col">
+          <div className="bg-white p-6 rounded-xl shadow-xl border border-gray-200 flex flex-col"> {/* Changed bg, stronger shadow */}
             {Object.keys(results).length === 0 && !isLoading && (
-              <div className="flex-grow flex flex-col items-center justify-center text-center text-gray-500">
+              <div className="flex-grow flex flex-col items-center justify-center text-center text-gray-500 p-4">
                 <p className="text-xl mb-4">Welcome to the Simulator!</p>
                 <p>Adjust the parameters on the left and click "Run Simulation" to see the results.</p>
               </div>
             )}
             {isLoading && Object.keys(results).length === 0 && (
-                <div className="bg-gray-50 p-8 rounded-xl shadow-md text-center text-indigo-600">
+                <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-600 p-4"> {/* Centered loading */}
                     <svg className="animate-spin h-10 w-10 text-indigo-500 mx-auto mb-4" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <p className="text-xl">Calculating scenarios... please wait.</p>
+                    <p className="text-lg font-medium">Calculating scenarios... please wait.</p>
                 </div>
             )}
             {Object.keys(results).length > 0 && (
               <>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-2 text-center">Simulation Results</h2>
-                <p className="text-gray-600 text-center text-sm mb-6">
+                <h2 className="text-2xl font-semibold text-indigo-700 mb-2 pb-3 text-center border-b-2 border-indigo-100">Simulation Results</h2> {/* Themed title */}
+                <p className="text-gray-500 text-center text-xs italic mb-6"> {/* Adjusted subtext style */}
                   (Based on {numEmployees} employees and {Math.round(numEmployees * deskRatio)} available seats)
                 </p>
                 {/* Table and Chart will stack vertically within this column */}
-                <div className="space-y-6">
-                    <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
-                      <table className="min-w-full bg-white rounded-lg overflow-hidden">
+                <div className="space-y-6 flex-grow"> {/* flex-grow to use available space */}
+                    <div className="overflow-x-auto rounded-md shadow-lg border border-gray-200"> {/* Stronger shadow, rounded-md */}
+                      <table className="min-w-full bg-white rounded-md overflow-hidden">
                         <thead className="bg-indigo-600 text-white">
                           <tr>
                             <th className="py-3 px-4 text-left text-sm font-semibold">Scenario</th>
@@ -384,8 +384,8 @@ const App = () => {
                       </table>
                     </div>
 
-                    <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                      <h3 className="text-lg font-semibold text-gray-700 mb-3 text-center">Visual Comparison</h3>
+                    <div className="bg-gray-50 p-4 rounded-md shadow-lg border border-gray-200"> {/* Slightly different bg, stronger shadow */}
+                      <h3 className="text-lg font-semibold text-gray-700 mb-4 text-center">Visual Comparison</h3>
                       <div className="w-full overflow-x-auto">
                         <svg ref={chartRef} className="w-full h-80"></svg> {/* Adjusted height */}
                       </div>
@@ -396,15 +396,15 @@ const App = () => {
           </div>
 
           {/* --- Column 3: Policy Insights --- */}
-          <div className="bg-indigo-50 p-6 rounded-xl shadow-lg border border-indigo-200 flex flex-col">
-            <h2 className="text-2xl font-semibold text-indigo-800 mb-6 pb-3 text-center flex items-center justify-center border-b border-indigo-200">
+          <div className="bg-indigo-50 p-6 rounded-xl shadow-xl border-2 border-indigo-200 flex flex-col"> {/* Stronger shadow & border */}
+            <h2 className="text-2xl font-semibold text-indigo-700 mb-6 pb-3 text-center flex items-center justify-center border-b-2 border-indigo-200"> {/* Consistent title theme */}
               <span className="mr-2">✨</span> Policy Insights
             </h2>
             {Object.keys(results).length > 0 ? (
               <>
                 <button
                   onClick={getLlmInsights}
-                  className="w-full bg-sky-500 text-white py-3 px-6 rounded-lg font-semibold text-lg hover:bg-sky-600 transition-colors duration-300 shadow-md hover:shadow-lg flex items-center justify-center mb-6"
+                  className="w-full bg-sky-500 text-white py-3 px-6 rounded-md font-semibold text-lg hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-all duration-150 ease-in-out shadow-md hover:shadow-lg flex items-center justify-center mb-6" /* rounded-md, focus states */
                   disabled={isLoadingLlm || isLoading}
                 >
                   {isLoadingLlm ? (
@@ -416,7 +416,7 @@ const App = () => {
                   {isLoadingLlm ? 'Generating Insights...' : 'Get Policy Insights'}
                 </button>
                 {llmInsights && (
-                  <div className="bg-white p-6 rounded-lg border border-indigo-100 text-gray-800 prose prose-sm max-w-none">
+                  <div className="bg-white p-4 sm:p-6 rounded-md border border-indigo-100 text-gray-800 prose prose-sm max-w-none flex-grow overflow-y-auto"> {/* flex-grow, overflow for long text */}
                     {llmInsights.split('\n').filter(line => line.trim() !== '').map((line, index) => (
                       <p key={index} className="mb-2 last:mb-0">{line}</p>
                     ))}
@@ -424,7 +424,7 @@ const App = () => {
                 )}
               </>
             ) : (
-              <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-400">
+              <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-500 p-4"> {/* Slightly darker text */}
                 <p>Run a simulation to generate policy insights.</p>
               </div>
             )}
