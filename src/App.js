@@ -269,9 +269,9 @@ const App = () => {
       <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-6xl">
         <h1 className="text-4xl font-bold text-gray-900 mb-10 pb-6 text-center border-b-2 border-indigo-100">Office Seat Utilization Simulator</h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* --- Left Column: Control Panel --- */}
-          <div className="md:col-span-1 bg-slate-50 p-6 rounded-xl shadow-lg border border-slate-200">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* --- Column 1: Control Panel --- */}
+          <div className="bg-slate-50 p-6 rounded-xl shadow-lg border border-slate-200 flex flex-col">
             <h2 className="text-2xl font-semibold text-gray-800 mb-6 pb-3 border-b border-gray-300">Simulation Parameters</h2>
             {/* Input Section */}
             <div className="space-y-6">
@@ -326,7 +326,7 @@ const App = () => {
 
             {/* Run Simulation Button */}
             <button
-              onClick={runAllSimulations}
+              onClick={runAllSimulations} // This button remains in the input panel
               className="w-full mt-8 bg-indigo-600 text-white py-3.5 px-6 rounded-lg font-semibold text-lg hover:bg-indigo-700 transition-colors duration-300 shadow-md hover:shadow-lg flex items-center justify-center"
               disabled={isLoading}
             >
@@ -340,15 +340,14 @@ const App = () => {
             </button>
           </div>
 
-          {/* --- Right Column: Results & Insights --- */}
-          <div className="md:col-span-2 space-y-8">
+          {/* --- Column 2: Results Display --- */}
+          <div className="bg-slate-50 p-6 rounded-xl shadow-lg border border-slate-200 flex flex-col">
             {Object.keys(results).length === 0 && !isLoading && (
-              <div className="bg-gray-50 p-8 rounded-xl shadow-md text-center text-gray-500">
+              <div className="flex-grow flex flex-col items-center justify-center text-center text-gray-500">
                 <p className="text-xl mb-4">Welcome to the Simulator!</p>
                 <p>Adjust the parameters on the left and click "Run Simulation" to see the results.</p>
               </div>
             )}
-
             {isLoading && Object.keys(results).length === 0 && (
                 <div className="bg-gray-50 p-8 rounded-xl shadow-md text-center text-indigo-600">
                     <svg className="animate-spin h-10 w-10 text-indigo-500 mx-auto mb-4" viewBox="0 0 24 24">
@@ -358,17 +357,14 @@ const App = () => {
                     <p className="text-xl">Calculating scenarios... please wait.</p>
                 </div>
             )}
-
             {Object.keys(results).length > 0 && (
               <>
-                {/* Results Display Area */}
-                <div className="bg-slate-50 p-6 rounded-xl shadow-lg border border-slate-200">
-                  <h2 className="text-2xl font-semibold text-gray-800 mb-2 text-center">Simulation Results</h2>
-                  <p className="text-gray-600 text-center text-sm mb-6">
-                    (Based on {numEmployees} employees and {Math.round(numEmployees * deskRatio)} available seats)
-                  </p>
-                  
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-2 text-center">Simulation Results</h2>
+                <p className="text-gray-600 text-center text-sm mb-6">
+                  (Based on {numEmployees} employees and {Math.round(numEmployees * deskRatio)} available seats)
+                </p>
+                {/* Table and Chart will stack vertically within this column */}
+                <div className="space-y-6">
                     <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
                       <table className="min-w-full bg-white rounded-lg overflow-hidden">
                         <thead className="bg-indigo-600 text-white">
@@ -395,36 +391,42 @@ const App = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-
-                {/* LLM Insights Section */}
-                <div className="bg-indigo-50 p-6 rounded-xl shadow-lg border border-indigo-200">
-                  <h2 className="text-2xl font-semibold text-indigo-800 mb-6 pb-3 text-center flex items-center justify-center border-b border-indigo-200">
-                    <span className="mr-2">✨</span> Policy Insights
-                  </h2>
-                  <button
-                    onClick={getLlmInsights}
-                    className="w-full bg-sky-500 text-white py-3 px-6 rounded-lg font-semibold text-lg hover:bg-sky-600 transition-colors duration-300 shadow-md hover:shadow-lg flex items-center justify-center mb-6"
-                    disabled={isLoadingLlm || isLoading}
-                  >
-                    {isLoadingLlm ? (
-                      <svg className="animate-spin h-5 w-5 text-white mr-3" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : <span className="mr-2">🧠</span>}
-                    {isLoadingLlm ? 'Generating Insights...' : 'Get Policy Insights'}
-                  </button>
-
-                  {llmInsights && (
-                    <div className="bg-white p-6 rounded-lg border border-indigo-100 text-gray-800 prose prose-sm max-w-none">
-                      {llmInsights.split('\n').filter(line => line.trim() !== '').map((line, index) => (
-                        <p key={index} className="mb-2 last:mb-0">{line}</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </>
+            )}
+          </div>
+
+          {/* --- Column 3: Policy Insights --- */}
+          <div className="bg-indigo-50 p-6 rounded-xl shadow-lg border border-indigo-200 flex flex-col">
+            <h2 className="text-2xl font-semibold text-indigo-800 mb-6 pb-3 text-center flex items-center justify-center border-b border-indigo-200">
+              <span className="mr-2">✨</span> Policy Insights
+            </h2>
+            {Object.keys(results).length > 0 ? (
+              <>
+                <button
+                  onClick={getLlmInsights}
+                  className="w-full bg-sky-500 text-white py-3 px-6 rounded-lg font-semibold text-lg hover:bg-sky-600 transition-colors duration-300 shadow-md hover:shadow-lg flex items-center justify-center mb-6"
+                  disabled={isLoadingLlm || isLoading}
+                >
+                  {isLoadingLlm ? (
+                    <svg className="animate-spin h-5 w-5 text-white mr-3" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : <span className="mr-2">🧠</span>}
+                  {isLoadingLlm ? 'Generating Insights...' : 'Get Policy Insights'}
+                </button>
+                {llmInsights && (
+                  <div className="bg-white p-6 rounded-lg border border-indigo-100 text-gray-800 prose prose-sm max-w-none">
+                    {llmInsights.split('\n').filter(line => line.trim() !== '').map((line, index) => (
+                      <p key={index} className="mb-2 last:mb-0">{line}</p>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-400">
+                <p>Run a simulation to generate policy insights.</p>
+              </div>
             )}
           </div>
         </div>
