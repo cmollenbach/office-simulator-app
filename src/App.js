@@ -1,269 +1,83 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import * as d3 from 'd3'; // For charting
+// c:\Users\chris\Documents\office-simulator-app\src\App.js
+import React, { useState, useCallback } from 'react';
 
-// Helper function to generate a random number from a standard normal distribution (mean 0, std dev 1)
-// using the Box-Muller transform.
-function generateStandardNormal() {
-  let u = 0, v = 0;
-  while (u === 0) u = Math.random(); // Converting [0,1) to (0,1)
-  while (v === 0) v = Math.random();
-  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-}
 
-// Helper function to generate a random number from a normal distribution with specified mean and standard deviation
-function generateNormalRandom(mean, stdDev) {
-  return mean + stdDev * generateStandardNormal();
-}
+import {
+  runScenario,
+  generateNormalRandom,
+  DAYS_IN_WORK_WEEK,
+  SCENARIO_NAMES
+} from './simulationUtils';
 
-const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"; // Or your specific model
-const DAYS_IN_WORK_WEEK = 5;
+import ParameterInputPanel from './ParameterInputPanel';
+import ResultsDisplayPanel from './ResultsDisplayPanel';
+import LlmInsightsPanel from './LlmInsightsPanel';
+import useD3Chart from './useD3Chart'; // Import custom hook for D3 chart
+import useLlmInsights from './useLlmInsights'; // Import custom hook for LLM
+
+
 
 // Main App component
 const App = () => {
   // Input state variables
   const [numEmployees, setNumEmployees] = useState(100); // Default number of employees
   const [deskRatio, setDeskRatio] = useState(0.7); // Default desk ratio (70% desks compared to employees)
+    const [meanPreference, setMeanPreference] = useState(3); // Default average preferred days in office
   const [stdDevPreference, setStdDevPreference] = useState(0.8); // Default standard deviation for preferred days
-  const [numSimulations, setNumSimulations] = useState(10000); // Default number of simulation runs
-
+  const [numSimulations, setNumSimulations] = useState(10000); // Default number of simulation runs (now represents weeks)
+const [dayWeights, setDayWeights] = useState([0.8, 1.2, 1.2, 1.1, 0.7]); // Default weights
   // State to store simulation results
   const [results, setResults] = useState({});
   // State to manage loading indicator for simulation
   const [isLoading, setIsLoading] = useState(false);
 
-  // State for LLM-generated insights
-  const [llmInsights, setLlmInsights] = useState("");
-  // State to manage loading indicator for LLM
-  const [isLoadingLlm, setIsLoadingLlm] = useState(false);
+  // Custom hook for D3 chart
+  const chartRef = useD3Chart(results);
 
-  // Ref for the D3 chart SVG element
-  const chartRef = useRef(null);
-
-  // Function to run the Monte Carlo simulation for a single scenario
-  const runScenario = (scenarioName, numEmployees, availableSeats, employeePreferences, dailyAttendanceLogic) => {
-    let totalShortagePercentage = 0;
-
-    // Loop through each simulation run (representing a 'day')
-    for (let i = 0; i < numSimulations; i++) {
-      let currentDayAttendees = 0;
-
-      // For each employee, determine if they are in the office today based on the scenario's logic
-      for (let j = 0; j < numEmployees; j++) {
-        const preferredDays = employeePreferences[j];
-        // Get the daily probability of attendance based on the scenario's rules
-        const dailyProb = dailyAttendanceLogic(preferredDays);
-
-        // Randomly decide if the employee is in the office today
-        if (Math.random() < dailyProb) {
-          currentDayAttendees++;
-        }
-      }
-
-      // Calculate the number of people without a seat for this simulated day
-      const peopleWithoutSeat = Math.max(0, currentDayAttendees - availableSeats);
-      // Convert to percentage of total employees and add to running total
-      totalShortagePercentage += (peopleWithoutSeat / numEmployees) * 100;
-    }
-
-    // Calculate the average percentage of employees without a seat over all simulations
-    return totalShortagePercentage / numSimulations;
-  };
+// Custom hook for LLM insights
+  const { llmInsights, isLoadingLlm, fetchLlmInsightsData } = useLlmInsights();
 
   // Main function to run all simulations
-  const runAllSimulations = () => {
-    setIsLoading(true); // Set loading state to true
-    setLlmInsights(""); // Clear previous LLM insights when running new simulation
+  const runAllSimulations = useCallback(() => {
+    setIsLoading(true);
 
-    // Calculate available seats based on employee count and desk ratio
     const availableSeats = Math.round(numEmployees * deskRatio);
 
-    // Generate preferred days in office for each employee once
-    // These preferences are fixed for each employee across all scenarios
+    // Generate preferred days in office for each employee once for this entire simulation run
     const employeePreferences = Array.from({ length: numEmployees }, () => {
-      // Generate a normally distributed preference, round to nearest integer, and clamp between 0 and 5
-      return Math.min(5, Math.max(0, Math.round(generateNormalRandom(3, stdDevPreference))));
+       return Math.min(DAYS_IN_WORK_WEEK, Math.max(0, Math.round(generateNormalRandom(meanPreference, stdDevPreference))));
     });
 
-    // Define the attendance logic for each scenario
-    const scenarios = {
-      "1) No rules": (preferredDays) => preferredDays / DAYS_IN_WORK_WEEK,
-      "2) Min 2 days/week, no max": (preferredDays) => Math.max(2, preferredDays) / DAYS_IN_WORK_WEEK,
-      "3) Min 3 days/week, no max": (preferredDays) => Math.max(3, preferredDays) / DAYS_IN_WORK_WEEK,
-      "4) Min 2 days/week, max 4 days/week": (preferredDays) => Math.min(4, Math.max(2, preferredDays)) / DAYS_IN_WORK_WEEK,
-      "5) Exactly 3 days/week": () => 3 / DAYS_IN_WORK_WEEK,
-    };
-
+   
     const newResults = {};
     // Run simulation for each scenario
-    for (const scenarioName in scenarios) {
+    for (const scenarioName of SCENARIO_NAMES) {
       newResults[scenarioName] = runScenario(
         scenarioName,
         numEmployees,
         availableSeats,
         employeePreferences,
-        scenarios[scenarioName]
+         numSimulations,
+        dayWeights
       );
     }
 
-    setResults(newResults); // Update results state
-    setIsLoading(false); // Set loading state to false
-  };
+    setResults(newResults);
+    setIsLoading(false);
+    }, [numEmployees, deskRatio, meanPreference, stdDevPreference, numSimulations,dayWeights, setIsLoading, setResults]); // Added dependencies for useCallback
 
-  // Function to draw the bar chart using D3.js
-  const drawChart = useCallback(() => {
-    // This function is called by the useEffect below, which already checks
-    // if results has data and chartRef.current is available.
-
-    const data = Object.entries(results).map(([name, value]) => ({ name, value }));
-
-    // Clear any existing chart
-    if (!chartRef.current) {
-      console.warn("Chart ref is not available for drawing.");
-      return;
-    }
-    // Ensure results has data, though the calling useEffect should handle this.
-    // This is more of a defensive check within drawChart itself.
-    if (data.length === 0) {
-      d3.select(chartRef.current).selectAll('*').remove(); // Clear if no data
-      return;
-    }
-
-    d3.select(chartRef.current).selectAll('*').remove();
-
-    const margin = { top: 20, right: 30, bottom: 120, left: 60 }; // Increased bottom margin for labels
-    const width = chartRef.current.clientWidth - margin.left - margin.right;
-    const height = 400 - margin.top - margin.bottom;
-
-    const svg = d3.select(chartRef.current)
-      .attr("width", width + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)
-      .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
-
-    // X scale (scenarios)
-    const x = d3.scaleBand()
-      .range([0, width])
-      .domain(data.map(d => d.name))
-      .padding(0.2);
-
-    // Y scale (percentage without seat)
-    const yMaxValue = d3.max(data, d => d.value);
-    const yDomainEnd = yMaxValue !== undefined && yMaxValue > 0 ? yMaxValue * 1.1 : 10; // Ensure a min height for y-axis, e.g., 10%
-    const y = d3.scaleLinear()
-      .domain([0, yDomainEnd])
-      .range([height, 0]);
-
-    // Add X axis
-    svg.append("g")
-      .attr("transform", `translate(0,${height})`)
-      .call(d3.axisBottom(x))
-      .selectAll("text")
-      .attr("transform", "rotate(-45)") // Rotate labels for better readability
-      .style("text-anchor", "end")
-      .style("font-size", "12px")
-      .style("fill", "#333");
-
-    // Add Y axis
-    svg.append("g")
-      .call(d3.axisLeft(y).tickFormat(d => `${d.toFixed(1)}%`)) // Format Y axis as percentage
-      .style("font-size", "12px")
-      .style("fill", "#333");
-
-    // Y axis label
-    svg.append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("y", 0 - margin.left + 10)
-      .attr("x", 0 - (height / 2))
-      .attr("dy", "1em")
-      .style("text-anchor", "middle")
-      .style("font-size", "14px")
-      .style("fill", "#555")
-      .text("Average % Employees Without a Seat");
-
-    // Add bars
-    svg.selectAll(".bar")
-      .data(data)
-      .enter().append("rect")
-      .attr("class", "bar")
-      .attr("x", d => x(d.name))
-      .attr("y", d => y(d.value))
-      .attr("width", x.bandwidth())
-      .attr("height", d => height - y(d.value))
-      .attr("fill", "#6366F1") // Tailwind indigo-500
-      .attr("rx", 6) // Rounded corners for bars
-      .attr("ry", 6);
-
-    // Add values on top of bars
-    svg.selectAll(".text")
-      .data(data)
-      .enter().append("text")
-      .attr("class", "value-label")
-      .attr("x", d => x(d.name) + x.bandwidth() / 2)
-      .attr("y", d => y(d.value) - 5) // Position slightly above the bar
-      .attr("text-anchor", "middle")
-      .style("font-size", "12px")
-      .style("fill", "#333")
-      .text(d => `${d.value.toFixed(2)}%`);
-  }, [results]); // drawChart will be re-memoized only when 'results' changes.
-
-  // Effect hook to draw the chart whenever results or drawChart (which depends on results) change
-  useEffect(() => {
-    if (Object.keys(results).length > 0 && chartRef.current) {
-      drawChart();
-    }
-  }, [results, drawChart]); // Now drawChart is a stable dependency
-
-
-  // Function to get LLM insights
-  const getLlmInsights = async () => {
-    setIsLoadingLlm(true);
-    setLlmInsights(""); // Clear previous insights
-
-    const prompt = `
-      I have performed a Monte Carlo simulation for office seat utilization.
-      Here are the simulation parameters:
-      - Number of Employees: ${numEmployees}
-      - Desk Ratio (Seats / Employees): ${deskRatio} (meaning ${Math.round(numEmployees * deskRatio)} available seats)
-      - Standard Deviation of Employee Preference: ${stdDevPreference}
-      - Number of Simulations: ${numSimulations}
-
-      Here are the average percentages of employees potentially without a seat for various scenarios:
-      ${Object.entries(results).map(([scenario, percentage]) => `- ${scenario}: ${percentage.toFixed(2)}%`).join('\n')}
-
-      Please provide a brief summary of these results. Then, for the top 2-3 best-performing scenarios (those with the lowest "Avg. % Without Seat"), analyze their potential pros and cons from both the company's and the employees' perspectives.
-      Focus on clarity and actionable insights.
-    `;
-
-    let chatHistory = [];
-    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-    const payload = { contents: chatHistory };
-    const apiKey = ""; // Leave as empty string, Canvas will provide it. Handled by environment.
-    const apiUrl = `${GEMINI_API_BASE_URL}?key=${apiKey}`;
-
-    try {
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const result = await response.json();
-
-      if (result.candidates && result.candidates.length > 0 &&
-          result.candidates[0].content && result.candidates[0].content.parts &&
-          result.candidates[0].content.parts.length > 0) {
-        const text = result.candidates[0].content.parts[0].text;
-        setLlmInsights(text.trim()); // Trim whitespace
-      } else {
-        setLlmInsights("Failed to get insights from the AI. The response might be empty or in an unexpected format. Please try again.");
-        console.error("LLM response structure unexpected:", result);
-      }
-    } catch (error) {
-      setLlmInsights("Error connecting to the AI service. Please check your network connection or try again later.");
-      console.error("Error fetching LLM insights:", error);
-    } finally {
-      setIsLoadingLlm(false);
-    }
-  };
+  const handleGetLlmInsights = useCallback(() => {
+    fetchLlmInsightsData({
+      numEmployees,
+      deskRatio,
+      meanPreference,   // Added meanPreference to LLM prompt data
+      stdDevPreference,
+      dayWeights,       // Pass dayWeights for LLM context
+      numSimulations,
+      results
+    });
+  
+  }, [fetchLlmInsightsData, numEmployees, deskRatio, meanPreference, stdDevPreference, dayWeights, numSimulations, results]);
 
 
   return (
@@ -271,165 +85,48 @@ const App = () => {
       <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-6xl">
         <h1 className="text-4xl font-bold text-gray-900 mb-10 pb-6 text-center border-b-2 border-indigo-100">Office Seat Utilization Simulator</h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8"> {/* Adjusted gap for consistency */}
-          {/* --- Column 1: Control Panel --- */} {/* Panel background changed for definition */}
-          <div className="bg-gray-50 p-6 rounded-xl shadow-lg border border-gray-300 flex flex-col">
-            <h2 className="text-2xl font-semibold text-indigo-700 mb-6 pb-3 border-b-2 border-indigo-100">Simulation Parameters</h2> {/* Themed title */}
-            {/* Input Section */}
-            <div className="space-y-5"> {/* Slightly reduced space-y */}
-              <div className="flex flex-col">
-                <label htmlFor="employees" className="text-gray-700 font-semibold mb-2 text-sm">Number of Employees:</label>
-                <input
-                  type="number"
-                  id="employees"
-                  value={numEmployees}
-                  onChange={(e) => setNumEmployees(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out" /* Added w-full */
-                  min="1"
-                />
-              </div>
-              <div className="flex flex-col">
-                <label htmlFor="deskRatio" className="text-gray-700 font-semibold mb-2 text-sm">Desk Ratio (Seats / Employees):</label>
-                <input
-                  type="number"
-                  id="deskRatio"
-                  value={deskRatio}
-                  onChange={(e) => setDeskRatio(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out" /* Added w-full */
-                  min="0.1"
-                  step="0.05"
-                />
-              </div>
-              <div className="flex flex-col">
-                <label htmlFor="stdDev" className="text-gray-700 font-semibold mb-2 text-sm">Std Dev of Preference (0-5 days):</label>
-                <input
-                  type="number"
-                  id="stdDev"
-                  value={stdDevPreference}
-                  onChange={(e) => setStdDevPreference(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out" /* Added w-full */
-                  min="0.1"
-                  step="0.1"
-                />
-              </div>
-              <div className="flex flex-col">
-                <label htmlFor="simulations" className="text-gray-700 font-semibold mb-2 text-sm">Number of Simulations:</label>
-                <input
-                  type="number"
-                  id="simulations"
-                  value={numSimulations}
-                  onChange={(e) => setNumSimulations(Math.max(1000, parseInt(e.target.value, 10) || 1000))}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out" /* Added w-full */
-                  min="1000"
-                  step="1000"
-                />
-              </div>
-            </div>
-
-            {/* Run Simulation Button */}
-            <button
-              onClick={runAllSimulations} // This button remains in the input panel
-              className="w-full mt-8 bg-indigo-600 text-white py-3 px-6 rounded-md font-semibold text-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 ease-in-out shadow-md hover:shadow-lg flex items-center justify-center" /* rounded-md, focus states */
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <svg className="animate-spin h-5 w-5 text-white mr-3" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              ) : <span className="mr-2">🚀</span>}
-              {isLoading ? 'Running Simulation...' : 'Run Simulation'}
-            </button>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+          {/* Parameter Inputs - takes 1 column on large screens */}
+          <div className="lg:col-span-1">
+            <ParameterInputPanel
+              numEmployees={numEmployees}
+              setNumEmployees={setNumEmployees}
+              deskRatio={deskRatio}
+              setDeskRatio={setDeskRatio}
+              meanPreference={meanPreference}
+              setMeanPreference={setMeanPreference}
+              stdDevPreference={stdDevPreference}
+              setStdDevPreference={setStdDevPreference}
+              numSimulations={numSimulations}
+              setNumSimulations={setNumSimulations}
+              dayWeights={dayWeights}
+              setDayWeights={setDayWeights}
+              runAllSimulations={runAllSimulations}
+              isLoading={isLoading}
+            />
           </div>
 
-          {/* --- Column 2: Results Display --- */}
-          <div className="bg-gray-50 p-6 rounded-xl shadow-lg border border-gray-300 flex flex-col"> {/* Panel background changed for definition */}
-            {Object.keys(results).length === 0 && !isLoading && (
-              <div className="flex-grow flex flex-col items-center justify-center text-center text-gray-500 p-4">
-                <p className="text-xl mb-4">Welcome to the Simulator!</p>
-                <p>Adjust the parameters on the left and click "Run Simulation" to see the results.</p>
-              </div>
-            )}
-            {isLoading && Object.keys(results).length === 0 && (
-                <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-600 p-4"> {/* Centered loading */}
-                    <svg className="animate-spin h-10 w-10 text-indigo-500 mx-auto mb-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p className="text-lg font-medium">Calculating scenarios... please wait.</p>
-                </div>
-            )}
-            {Object.keys(results).length > 0 && (
-              <>
-                <h2 className="text-2xl font-semibold text-indigo-700 mb-2 pb-3 text-center border-b-2 border-indigo-100">Simulation Results</h2> {/* Themed title */}
-                <p className="text-gray-500 text-center text-xs italic mb-6"> {/* Adjusted subtext style */}
-                  (Based on {numEmployees} employees and {Math.round(numEmployees * deskRatio)} available seats)
-                </p>
-                {/* Table and Chart will stack vertically within this column */}
-                <div className="space-y-6 flex-grow"> {/* flex-grow to use available space */}
-                    <div className="overflow-x-auto rounded-md shadow-lg border border-gray-200"> {/* Stronger shadow, rounded-md */}
-                      <table className="min-w-full bg-white rounded-md overflow-hidden">
-                        <thead className="bg-indigo-600 text-white">
-                          <tr>
-                            <th className="py-3 px-4 text-left text-sm font-semibold">Scenario</th>
-                            <th className="py-3 px-4 text-left text-sm font-semibold">Avg. % Without Seat</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {Object.entries(results).map(([scenario, percentage]) => (
-                            <tr key={scenario} className="hover:bg-gray-50 transition-colors duration-150">
-                              <td className="py-3 px-4 text-gray-800 text-sm">{scenario}</td>
-                              <td className="py-3 px-4 text-gray-800 text-sm font-medium">{percentage.toFixed(2)}%</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className="bg-gray-50 p-4 rounded-md shadow-lg border border-gray-200"> {/* Slightly different bg, stronger shadow */}
-                      <h3 className="text-lg font-semibold text-gray-700 mb-4 text-center">Visual Comparison</h3>
-                      <div className="w-full overflow-x-auto">
-                        <svg ref={chartRef} className="w-full h-80"></svg> {/* Adjusted height */}
-                      </div>
-                    </div>
-                  </div>
-              </>
-            )}
+          {/* Simulation Results - takes 2 columns on large screens */}
+          <div className="lg:col-span-2">
+            <ResultsDisplayPanel
+              results={results}
+              isLoading={isLoading}
+              chartRef={chartRef}
+              numSimulations={numSimulations}
+              numEmployees={numEmployees}
+              deskRatio={deskRatio}
+            />
           </div>
 
-          {/* --- Column 3: Policy Insights --- */}
-          <div className="bg-indigo-50 p-6 rounded-xl shadow-lg border border-indigo-300 flex flex-col"> {/* Adjusted shadow & border for consistency */}
-            <h2 className="text-2xl font-semibold text-indigo-700 mb-6 pb-3 text-center flex items-center justify-center border-b-2 border-indigo-200">
-              <span className="mr-2">✨</span> Policy Insights
-            </h2>
-            {Object.keys(results).length > 0 ? (
-              <>
-                <button
-                  onClick={getLlmInsights}
-                  className="w-full bg-sky-500 text-white py-3 px-6 rounded-md font-semibold text-lg hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-all duration-150 ease-in-out shadow-md hover:shadow-lg flex items-center justify-center mb-6" /* rounded-md, focus states */
-                  disabled={isLoadingLlm || isLoading}
-                >
-                  {isLoadingLlm ? (
-                    <svg className="animate-spin h-5 w-5 text-white mr-3" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : <span className="mr-2">🧠</span>}
-                  {isLoadingLlm ? 'Generating Insights...' : 'Get Policy Insights'}
-                </button>
-                {llmInsights && (
-                  <div className="bg-white p-4 sm:p-6 rounded-md border border-indigo-100 text-gray-800 prose prose-sm max-w-none flex-grow overflow-y-auto"> {/* flex-grow, overflow for long text */}
-                    {llmInsights.split('\n').filter(line => line.trim() !== '').map((line, index) => (
-                      <p key={index} className="mb-2 last:mb-0">{line}</p>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-500 p-4"> {/* Slightly darker text */}
-                <p>Run a simulation to generate policy insights.</p>
-              </div>
-            )}
+          {/* Policy Insights - takes full 3 columns on large screens, effectively a new row */}
+          <div className="lg:col-span-3">
+            <LlmInsightsPanel
+              results={results}
+              getLlmInsights={handleGetLlmInsights}
+              isLoadingLlm={isLoadingLlm}
+              llmInsights={llmInsights}
+              isLoading={isLoading}
+            />
           </div>
         </div>
       </div>
