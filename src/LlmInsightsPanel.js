@@ -1,5 +1,6 @@
 // c:\Users\chris\Documents\office-simulator-app\src\LlmInsightsPanel.js
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
 
 const LlmInsightsPanel = ({
   results,
@@ -31,10 +32,8 @@ const LlmInsightsPanel = ({
             {isLoadingLlm ? 'Generating Insights...' : 'Get Policy Insights'}
           </button>
           {llmInsights && (
-            <div className="bg-white p-4 sm:p-6 rounded-md border border-indigo-100 text-gray-800 prose prose-sm max-w-none flex-grow overflow-y-auto">
-              {llmInsights.split('\n').filter(line => line.trim() !== '').map((line, index) => (
-                <p key={index} className="mb-2 last:mb-0">{line}</p>
-              ))}
+            <div className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none bg-white p-4 sm:p-6 rounded-md border border-indigo-100 text-gray-800 flex-grow overflow-y-auto">
+              <ReactMarkdown>{llmInsights}</ReactMarkdown>
             </div>
           )}
           {!llmInsights && !isLoadingLlm && (

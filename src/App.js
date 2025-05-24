@@ -237,7 +237,7 @@ const App = () => {
       stdDevPreference,
       dayWeights,
       numSimulations,
-      resultsToDisplay // Pass the currently viewed results
+       results: resultsToDisplay
     });
 
   }, [fetchLlmInsightsData, numEmployees, deskRatio, meanPreference, stdDevPreference, dayWeights, numSimulations, resultsToDisplay]);
