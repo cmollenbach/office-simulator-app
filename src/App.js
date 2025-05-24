@@ -246,7 +246,7 @@ const App = () => {
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-8 font-sans flex flex-col items-center">
       <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-6xl">
-        <h1 className="text-4xl font-bold text-gray-900 mb-10 pb-6 text-center border-b-2 border-indigo-100">Office Seat Utilization Simulator</h1>
+        <h1 className="text-4xl font-bold text-indigo-700 mb-10 pb-6 text-center border-b-2 border-indigo-100">Office Seat Utilization Simulator</h1>
 
         {/* View Mode Toggle is now inside ResultsDisplayPanel */}
 

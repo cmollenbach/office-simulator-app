@@ -32,8 +32,10 @@ const LlmInsightsPanel = ({
             {isLoadingLlm ? 'Generating Insights...' : 'Get Policy Insights'}
           </button>
           {llmInsights && (
+            // Outer div for layout: full width, background, padding, border, etc.
             <div className="w-full bg-white p-4 sm:p-6 rounded-md border border-indigo-100 text-gray-800 flex-grow overflow-y-auto">
-              <div className="w-full prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none custom-prose-full-width"> {/* Added custom-prose-full-width */}
+              {/* Inner div for prose typography styling with our custom class */}
+              <div className="w-full prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none custom-prose-full-width">
                 <ReactMarkdown>{llmInsights}</ReactMarkdown>
               </div>
             </div>

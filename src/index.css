@@ -1,3 +1,4 @@
+/* src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -16,6 +17,20 @@ code {
     monospace;
 }
 
-.custom-prose-full-width > * {
+/* Add these specific rules for the custom prose class */
+.custom-prose-full-width p,
+.custom-prose-full-width ul,
+.custom-prose-full-width ol,
+.custom-prose-full-width h1,
+.custom-prose-full-width h2,
+.custom-prose-full-width h3,
+.custom-prose-full-width h4,
+.custom-prose-full-width h5,
+.custom-prose-full-width h6,
+.custom-prose-full-width blockquote,
+.custom-prose-full-width pre,
+.custom-prose-full-width table,
+.custom-prose-full-width figure,
+.custom-prose-full-width figcaption {
   max-width: none !important;
 }
