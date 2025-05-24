@@ -15,6 +15,8 @@ function generateNormalRandom(mean, stdDev) {
   return mean + stdDev * generateStandardNormal();
 }
 
+const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+
 // Main App component
 const App = () => {
   // Input state variables
@@ -233,8 +235,8 @@ const App = () => {
     let chatHistory = [];
     chatHistory.push({ role: "user", parts: [{ text: prompt }] });
     const payload = { contents: chatHistory };
-    const apiKey = ""; // Leave as empty string, Canvas will provide it
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const apiKey = ""; // Leave as empty string, Canvas will provide it. Handled by environment.
+    const apiUrl = `${GEMINI_API_BASE_URL}?key=${apiKey}`;
 
     try {
       const response = await fetch(apiUrl, {
