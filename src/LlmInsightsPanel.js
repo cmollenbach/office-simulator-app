@@ -32,8 +32,10 @@ const LlmInsightsPanel = ({
             {isLoadingLlm ? 'Generating Insights...' : 'Get Policy Insights'}
           </button>
           {llmInsights && (
-            <div className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none bg-white p-4 sm:p-6 rounded-md border border-indigo-100 text-gray-800 flex-grow overflow-y-auto">
-              <ReactMarkdown>{llmInsights}</ReactMarkdown>
+            <div className="w-full bg-white p-4 sm:p-6 rounded-md border border-indigo-100 text-gray-800 flex-grow overflow-y-auto">
+              <div className="w-full prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none custom-prose-full-width"> {/* Added custom-prose-full-width */}
+                <ReactMarkdown>{llmInsights}</ReactMarkdown>
+              </div>
             </div>
           )}
           {!llmInsights && !isLoadingLlm && (
