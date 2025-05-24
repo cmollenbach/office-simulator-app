@@ -267,53 +267,53 @@ const App = () => {
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-8 font-sans flex flex-col items-center">
       <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg w-full max-w-4xl">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">Office Seat Utilization Simulator</h1>
+        <h1 className="text-3xl font-bold text-gray-800 mb-8 pb-4 text-center border-b border-gray-200">Office Seat Utilization Simulator</h1>
 
         {/* Input Section */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="flex flex-col">
-            <label htmlFor="employees" className="text-gray-700 font-medium mb-2">Number of Employees:</label>
+            <label htmlFor="employees" className="text-gray-700 font-semibold mb-2 text-sm">Number of Employees:</label>
             <input
               type="number"
               id="employees"
               value={numEmployees}
-              onChange={(e) => setNumEmployees(Math.max(1, parseInt(e.target.value) || 0))}
-              className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+              onChange={(e) => setNumEmployees(Math.max(1, parseInt(e.target.value, 10) || 1))}
+              className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-150"
               min="1"
             />
           </div>
           <div className="flex flex-col">
-            <label htmlFor="deskRatio" className="text-gray-700 font-medium mb-2">Desk Ratio (Seats / Employees):</label>
+            <label htmlFor="deskRatio" className="text-gray-700 font-semibold mb-2 text-sm">Desk Ratio (Seats / Employees):</label>
             <input
               type="number"
               id="deskRatio"
               value={deskRatio}
-              onChange={(e) => setDeskRatio(Math.max(0.1, parseFloat(e.target.value) || 0))}
-              className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+              onChange={(e) => setDeskRatio(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
+              className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-150"
               min="0.1"
               step="0.05"
             />
           </div>
           <div className="flex flex-col">
-            <label htmlFor="stdDev" className="text-gray-700 font-medium mb-2">Std Dev of Preference (0-5 days):</label>
+            <label htmlFor="stdDev" className="text-gray-700 font-semibold mb-2 text-sm">Std Dev of Preference (0-5 days):</label>
             <input
               type="number"
               id="stdDev"
               value={stdDevPreference}
-              onChange={(e) => setStdDevPreference(Math.max(0.1, parseFloat(e.target.value) || 0))}
-              className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+              onChange={(e) => setStdDevPreference(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
+              className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-150"
               min="0.1"
               step="0.1"
             />
           </div>
           <div className="flex flex-col">
-            <label htmlFor="simulations" className="text-gray-700 font-medium mb-2">Number of Simulations:</label>
+            <label htmlFor="simulations" className="text-gray-700 font-semibold mb-2 text-sm">Number of Simulations:</label>
             <input
               type="number"
               id="simulations"
               value={numSimulations}
-              onChange={(e) => setNumSimulations(Math.max(1000, parseInt(e.target.value) || 0))}
-              className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+              onChange={(e) => setNumSimulations(Math.max(1000, parseInt(e.target.value, 10) || 1000))}
+              className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-150"
               min="1000"
               step="1000"
             />
@@ -338,7 +338,7 @@ const App = () => {
         {/* Results Section */}
         {Object.keys(results).length > 0 && (
           <div className="mt-10">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4 text-center">Simulation Results</h2>
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4 pb-3 text-center border-b border-gray-200">Simulation Results</h2>
             <p className="text-gray-600 text-center mb-6">
               Average percentage of employees potentially without a seat on a given day.
               <br/>
@@ -377,8 +377,8 @@ const App = () => {
             </div>
 
             {/* LLM Insights Section */}
-            <div className="mt-10 bg-blue-50 p-6 rounded-xl shadow-md border border-blue-200">
-              <h2 className="text-2xl font-bold text-blue-800 mb-4 text-center flex items-center justify-center">
+            <div className="mt-12 bg-indigo-50 p-6 rounded-xl shadow-md border border-indigo-200">
+              <h2 className="text-2xl font-semibold text-indigo-800 mb-6 pb-3 text-center flex items-center justify-center border-b border-indigo-200">
                 <span className="mr-2">✨</span> Policy Insights
               </h2>
               <button
@@ -396,7 +396,7 @@ const App = () => {
               </button>
 
               {llmInsights && (
-                <div className="bg-white p-4 rounded-lg border border-blue-100 text-gray-800 prose max-w-none">
+                <div className="bg-white p-4 rounded-lg border border-indigo-100 text-gray-800 prose max-w-none">
                   {llmInsights.split('\n').filter(line => line.trim() !== '').map((line, index) => (
                     <p key={index}>{line}</p>
                   ))}
