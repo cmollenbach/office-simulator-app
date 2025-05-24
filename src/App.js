@@ -15,7 +15,8 @@ function generateNormalRandom(mean, stdDev) {
   return mean + stdDev * generateStandardNormal();
 }
 
-const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"; // Or your specific model
+const DAYS_IN_WORK_WEEK = 5;
 
 // Main App component
 const App = () => {
@@ -85,11 +86,11 @@ const App = () => {
 
     // Define the attendance logic for each scenario
     const scenarios = {
-      "1) No rules": (preferredDays) => preferredDays / 5, // Daily probability is preferred days / 5
-      "2) Min 2 days/week, no max": (preferredDays) => Math.max(2, preferredDays) / 5, // At least 2 days
-      "3) Min 3 days/week, no max": (preferredDays) => Math.max(3, preferredDays) / 5, // At least 3 days
-      "4) Min 2 days/week, max 4 days/week": (preferredDays) => Math.min(4, Math.max(2, preferredDays)) / 5, // Between 2 and 4 days
-      "5) Exactly 3 days/week": () => 3 / 5, // Fixed 3 days for everyone
+      "1) No rules": (preferredDays) => preferredDays / DAYS_IN_WORK_WEEK,
+      "2) Min 2 days/week, no max": (preferredDays) => Math.max(2, preferredDays) / DAYS_IN_WORK_WEEK,
+      "3) Min 3 days/week, no max": (preferredDays) => Math.max(3, preferredDays) / DAYS_IN_WORK_WEEK,
+      "4) Min 2 days/week, max 4 days/week": (preferredDays) => Math.min(4, Math.max(2, preferredDays)) / DAYS_IN_WORK_WEEK,
+      "5) Exactly 3 days/week": () => 3 / DAYS_IN_WORK_WEEK,
     };
 
     const newResults = {};
@@ -146,9 +147,10 @@ const App = () => {
       .padding(0.2);
 
     // Y scale (percentage without seat)
-    const yMax = d3.max(data, d => d.value);
+    const yMaxValue = d3.max(data, d => d.value);
+    const yDomainEnd = yMaxValue !== undefined && yMaxValue > 0 ? yMaxValue * 1.1 : 10; // Ensure a min height for y-axis, e.g., 10%
     const y = d3.scaleLinear()
-      .domain([0, yMax !== undefined ? yMax * 1.1 : 10]) // 10% buffer, default max if no data
+      .domain([0, yDomainEnd])
       .range([height, 0]);
 
     // Add X axis
@@ -250,13 +252,13 @@ const App = () => {
           result.candidates[0].content && result.candidates[0].content.parts &&
           result.candidates[0].content.parts.length > 0) {
         const text = result.candidates[0].content.parts[0].text;
-        setLlmInsights(text);
+        setLlmInsights(text.trim()); // Trim whitespace
       } else {
-        setLlmInsights("Failed to get insights from LLM. Please try again.");
+        setLlmInsights("Failed to get insights from the AI. The response might be empty or in an unexpected format. Please try again.");
         console.error("LLM response structure unexpected:", result);
       }
     } catch (error) {
-      setLlmInsights("Error connecting to LLM. Please check your network or try again.");
+      setLlmInsights("Error connecting to the AI service. Please check your network connection or try again later.");
       console.error("Error fetching LLM insights:", error);
     } finally {
       setIsLoadingLlm(false);
