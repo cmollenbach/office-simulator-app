@@ -117,23 +117,21 @@ const App = () => {
       return;
     }
 
-    // Group data by week (assuming first column is date, but we'll group by it)
+    // Group data by week
     const weeklyData = {};
     csvData.forEach(row => {
-      // row is expected to be [DateString, DaysAttended, PeopleCount]
-      // Ensure dynamicTyping in PapaParse is true for numbers
       if (row.length < 3 || typeof row[0] !== 'string' || typeof row[1] !== 'number' || typeof row[2] !== 'number') {
         console.warn("Skipping invalid CSV row:", row);
         return;
       }
-      const weekIdentifier = row[0]; // Use the date string as week identifier
+      const weekIdentifier = row[0];
       const daysAttended = row[1];
       const peopleCount = row[2];
 
       if (!weeklyData[weekIdentifier]) {
         weeklyData[weekIdentifier] = {
           totalPeopleThisWeek: 0,
-          attendanceDistribution: Array(6).fill(0), // For 0 to 5 days
+          attendanceDistribution: Array(6).fill(0),
           weightedDaysSum: 0,
         };
       }
@@ -144,68 +142,108 @@ const App = () => {
       }
     });
 
-    // --- Outlier Detection (Simple Heuristic: based on total people per week) ---
+    const currentExcludedWeeks = [];
+    let lowerBoundTotalAttendance = -Infinity;
+    let upperBoundZeroAttendance = Infinity;
+
+    const minWeeksForOutlierDetection = 3;
+
+    // --- Outlier Detection for Low Total Attendance ---
     const weeklyTotals = Object.values(weeklyData).map(week => week.totalPeopleThisWeek);
-    if (weeklyTotals.length < 3) { // Need enough data points for outlier detection
-        console.warn("Not enough weekly data to perform robust outlier detection. Using all data.");
+    if (weeklyTotals.length >= minWeeksForOutlierDetection) {
+      const sortedTotals = [...weeklyTotals].sort((a, b) => a - b);
+      const q1Total = sortedTotals[Math.floor(sortedTotals.length / 4)];
+      const q3Total = sortedTotals[Math.floor(sortedTotals.length * 3 / 4)];
+      const iqrTotal = q3Total - q1Total;
+      lowerBoundTotalAttendance = q1Total - 1.5 * iqrTotal;
+    } else {
+      console.warn("Not enough weekly data to perform robust outlier detection for total attendance. Using all data for this metric.");
     }
 
-    const sortedTotals = [...weeklyTotals].sort((a, b) => a - b);
-    const q1 = sortedTotals.length > 0 ? sortedTotals[Math.floor(sortedTotals.length / 4)] : 0;
-    const q3 = sortedTotals.length > 0 ? sortedTotals[Math.floor(sortedTotals.length * 3 / 4)] : 0;
-    const iqr = q3 - q1;
-    const lowerBound = q1 - 1.5 * iqr;
-    // We are mostly concerned about unusually low attendance for holiday weeks
+    // --- Outlier Detection for High Zero Attendance ---
+    const weeklyZeroAttendanceCounts = Object.values(weeklyData).map(week => week.attendanceDistribution[0]);
+    if (weeklyZeroAttendanceCounts.length >= minWeeksForOutlierDetection) {
+        const sortedZeroCounts = [...weeklyZeroAttendanceCounts].sort((a, b) => a - b);
+        const q1Zero = sortedZeroCounts[Math.floor(sortedZeroCounts.length / 4)];
+        const q3Zero = sortedZeroCounts[Math.floor(sortedZeroCounts.length * 3 / 4)];
+        const iqrZero = q3Zero - q1Zero;
+        upperBoundZeroAttendance = q3Zero + 1.5 * iqrZero;
+    } else {
+        console.warn("Not enough weekly data to perform robust outlier detection for zero attendance. Using all data for this metric.");
+    }
+
 
     const nonOutlierWeeksData = [];
     let totalPeopleSum = 0;
     let allIndividualPreferences = [];
     const csvAttendanceDistributionSums = Array(6).fill(0);
-    const currentExcludedWeeks = [];
     let csvTotalEmployeeWeeks = 0;
-
 
     for (const weekKey in weeklyData) {
       const week = weeklyData[weekKey];
-      // Include if not an outlier OR if there's not enough data to detect outliers
-      if (week.totalPeopleThisWeek >= lowerBound || weeklyTotals.length < 3) {
+      let isOutlier = false;
+      let outlierReason = [];
+
+      if (weeklyTotals.length >= minWeeksForOutlierDetection && week.totalPeopleThisWeek < lowerBoundTotalAttendance) {
+        isOutlier = true;
+        outlierReason.push("Low total attendance");
+      }
+      if (weeklyZeroAttendanceCounts.length >= minWeeksForOutlierDetection && week.attendanceDistribution[0] > upperBoundZeroAttendance) {
+        isOutlier = true;
+        outlierReason.push("High zero attendance");
+      }
+      
+      if (isOutlier) {
+        console.log(`Excluding outlier week: ${weekKey} (Total people: ${week.totalPeopleThisWeek}, Zero attendance: ${week.attendanceDistribution[0]}). Reason: ${outlierReason.join(', ')}`);
+        currentExcludedWeeks.push(`${weekKey} (Reason: ${outlierReason.join('; ')})`);
+      } else {
         nonOutlierWeeksData.push(week);
         totalPeopleSum += week.totalPeopleThisWeek;
-        csvTotalEmployeeWeeks += week.totalPeopleThisWeek; // Sum total people across non-outlier weeks
+        csvTotalEmployeeWeeks += week.totalPeopleThisWeek;
 
         for (let days = 0; days <= 5; days++) {
-          // Add individual preferences to the flat array
           for (let i = 0; i < week.attendanceDistribution[days]; i++) {
             allIndividualPreferences.push(days);
           }
-          // Sum up attendance distribution counts across non-outlier weeks
           csvAttendanceDistributionSums[days] += week.attendanceDistribution[days];
         }
-      } else {
-        console.log(`Excluding outlier week: ${weekKey} (Total people: ${week.totalPeopleThisWeek})`);
-        currentExcludedWeeks.push(weekKey);
       }
     }
 
     if (nonOutlierWeeksData.length === 0) {
       alert("No valid (non-outlier) weekly data found after processing.");
+      setCsvEmpiricalPreferences(null); // Clear any previous empirical preferences
+      setExcludedWeeksLog([]); // Clear excluded weeks log
+       // Ensure "Imported CSV Data" entry reflects no data if all weeks are outliers
+      const noCsvDataEntry = {
+        "Imported CSV Data": {
+          overallAverage: null,
+          dailyAverages: null,
+          attendanceDistribution: Array(6).fill(0) // Show all zeros
+        }
+      };
+      setModeledResults(prev => ({ ...prev, ...noCsvDataEntry }));
+      setEmpiricalResults(prev => ({ ...prev, ...noCsvDataEntry }));
       return;
     }
 
-    // --- Estimate Parameters ---
+    // --- Estimate Parameters from Non-Outlier Data ---
     const estimatedNumEmployees = Math.round(totalPeopleSum / nonOutlierWeeksData.length);
     const estimatedMeanPreference = allIndividualPreferences.length > 0 ? allIndividualPreferences.reduce((sum, val) => sum + val, 0) / allIndividualPreferences.length : 0;
-    const variance = allIndividualPreferences.length > 0 ? allIndividualPreferences.reduce((sum, val) => sum + Math.pow(val - estimatedMeanPreference, 2), 0) / allIndividualPreferences.length : 0;
+    
+    let variance = 0;
+    if (allIndividualPreferences.length > 0) {
+      const mean = estimatedMeanPreference; // Use the calculated mean
+      variance = allIndividualPreferences.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / allIndividualPreferences.length;
+    }
     const estimatedStdDevPreference = Math.sqrt(variance);
 
-    // Calculate average attendance distribution from CSV (as percentage)
     const csvAverageAttendanceDistribution = csvTotalEmployeeWeeks > 0 ? csvAttendanceDistributionSums.map(sum => (sum / csvTotalEmployeeWeeks) * 100) : Array(6).fill(0);
 
-
-    // Update state
     const finalNumEmployees = estimatedNumEmployees > 0 ? estimatedNumEmployees : 100;
-    const finalMeanPreference = estimatedMeanPreference >= 0 && estimatedMeanPreference <= 5 ? parseFloat(estimatedMeanPreference.toFixed(1)) : 3;
-    const finalStdDevPreference = estimatedStdDevPreference > 0 ? parseFloat(estimatedStdDevPreference.toFixed(1)) : 0.8;
+    const finalMeanPreference = !isNaN(estimatedMeanPreference) && estimatedMeanPreference >= 0 && estimatedMeanPreference <= 5 ? parseFloat(estimatedMeanPreference.toFixed(1)) : 3;
+    const finalStdDevPreference = !isNaN(estimatedStdDevPreference) && estimatedStdDevPreference > 0 ? parseFloat(estimatedStdDevPreference.toFixed(1)) : 0.8;
+
 
     setNumEmployees(finalNumEmployees);
     setMeanPreference(finalMeanPreference);
@@ -213,20 +251,18 @@ const App = () => {
     setCsvEmpiricalPreferences(allIndividualPreferences.length > 0 ? allIndividualPreferences : null);
     setExcludedWeeksLog(currentExcludedWeeks);
 
-
     const csvResultEntry = {
       "Imported CSV Data": {
-        overallAverage: null, // Not applicable or calculable in the same way
-        dailyAverages: null,  // Not applicable
+        overallAverage: null,
+        dailyAverages: null,
         attendanceDistribution: csvAverageAttendanceDistribution
       }
     };
-    // Store the imported CSV data in both result sets so it's always available for comparison
     setModeledResults(prev => ({ ...prev, ...csvResultEntry }));
     setEmpiricalResults(prev => ({ ...prev, ...csvResultEntry }));
-    setCurrentViewMode('empirical'); // Switch to empirical view after import
+    setCurrentViewMode('empirical');
 
-    alert(`Parameters estimated from CSV and applied.\nEmployees: ${finalNumEmployees}\nAvg. Preferred Days: ${finalMeanPreference.toFixed(1)}\nStd Dev: ${finalStdDevPreference.toFixed(1)}\nSimulations will now run with both 'Modeled' and 'Empirical' (from CSV) preference views.`);
+    alert(`Parameters estimated from CSV and applied.\nEmployees: ${finalNumEmployees}\nAvg. Preferred Days: ${finalMeanPreference.toFixed(1)}\nStd Dev: ${finalStdDevPreference.toFixed(1)}\nSimulations will now run with both 'Modeled' and 'Empirical' (from CSV) preference views.${currentExcludedWeeks.length > 0 ? `\nExcluded weeks: ${currentExcludedWeeks.join(', ')}` : ''}`);
   };
 
   const handleGetLlmInsights = useCallback(() => {
@@ -248,10 +284,7 @@ const App = () => {
       <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-6xl">
         <h1 className="text-4xl font-bold text-indigo-700 mb-10 pb-6 text-center border-b-2 border-indigo-100">Office Seat Utilization Simulator</h1>
 
-        {/* View Mode Toggle is now inside ResultsDisplayPanel */}
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-          {/* Parameter Inputs - takes 1 column on large screens */}
           <div className="lg:col-span-1">
             <ParameterInputPanel
               numEmployees={numEmployees}
@@ -266,29 +299,26 @@ const App = () => {
               setNumSimulations={setNumSimulations}
               dayWeights={dayWeights}
               setDayWeights={setDayWeights}
-              onDataImported={processImportedData} // Pass the processing function
+              onDataImported={processImportedData}
               runAllSimulations={runAllSimulations}
               isLoading={isLoading}
             />
           </div>
 
-          {/* Simulation Results - takes 2 columns on large screens */}
           <div className="lg:col-span-2">
             <ResultsDisplayPanel
               results={resultsToDisplay}
               isLoading={isLoading}
               currentViewMode={currentViewMode}
-              setCurrentViewMode={setCurrentViewMode} // Pass setter for toggle
-              showToggle={!!csvEmpiricalPreferences} // Pass boolean to show toggle
-              excludedWeeksLog={excludedWeeksLog} // Pass the log of excluded weeks
-              // chartRef={chartRef} // No longer passing chartRef
+              setCurrentViewMode={setCurrentViewMode}
+              showToggle={!!csvEmpiricalPreferences}
+              excludedWeeksLog={excludedWeeksLog}
               numSimulations={numSimulations}
               numEmployees={numEmployees}
               deskRatio={deskRatio}
             />
           </div>
 
-          {/* Policy Insights - takes full 3 columns on large screens, effectively a new row */}
           <div className="lg:col-span-3">
             <LlmInsightsPanel
               results={resultsToDisplay}
