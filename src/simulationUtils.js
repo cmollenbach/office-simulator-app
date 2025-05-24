@@ -49,11 +49,14 @@ export function getTargetDaysPerWeek(scenarioName, preferredDays) {
 export function runScenario(scenarioName, numEmployees, availableSeats, employeePreferences, numSimulationsConfig, customDayWeights) {
   // Initialize sums for daily shortages (Mon, Tue, Wed, Thu, Fri)
   const dailyShortageSums = Array(DAYS_IN_WORK_WEEK).fill(0);
+  // Initialize sums for attendance distribution (0 to 5 days)
+  const attendanceDistributionSums = Array(DAYS_IN_WORK_WEEK + 1).fill(0);
 
   if (numEmployees === 0) {
     return {
       overallAverage: 0,
-      dailyAverages: Array(DAYS_IN_WORK_WEEK).fill(0)
+      dailyAverages: Array(DAYS_IN_WORK_WEEK).fill(0),
+      attendanceDistribution: Array(DAYS_IN_WORK_WEEK + 1).fill(0)
     };
   }
 
@@ -64,9 +67,10 @@ export function runScenario(scenarioName, numEmployees, availableSeats, employee
 
   for (let i = 0; i < numSimulationsConfig; i++) {
     const weeklyAttendance = Array(numEmployees).fill(null).map(() => Array(DAYS_IN_WORK_WEEK).fill(0));
+    const employeeActualDaysThisWeek = Array(numEmployees).fill(0);
 
     for (let empIdx = 0; empIdx < numEmployees; empIdx++) {
-      const preferredDaysForEmp = employeePreferences[empIdx];
+      const preferredDaysForEmp = employeePreferences[empIdx]; // This now comes pre-determined (either modeled or empirical)
       const targetDaysThisWeek = getTargetDaysPerWeek(scenarioName, preferredDaysForEmp);
 
       let daysToAttendCount = targetDaysThisWeek;
@@ -102,11 +106,12 @@ export function runScenario(scenarioName, numEmployees, availableSeats, employee
             }
           }
         }
-        
+
         if (chosenDayPoolIndex !== -1) {
           const actualChosenDay = weekdaysForSelection[chosenDayPoolIndex];
           weeklyAttendance[empIdx][actualChosenDay] = 1;
-          
+          employeeActualDaysThisWeek[empIdx]++;
+
           // "Remove" the chosen day by swapping it with the last available day and decrementing count
           weekdaysForSelection[chosenDayPoolIndex] = weekdaysForSelection[numAvailableWeekdays - 1];
           numAvailableWeekdays--;
@@ -116,6 +121,7 @@ export function runScenario(scenarioName, numEmployees, availableSeats, employee
           if (numAvailableWeekdays > 0) {
               const actualChosenDay = weekdaysForSelection[0]; // Pick the first available
               weeklyAttendance[empIdx][actualChosenDay] = 1;
+              employeeActualDaysThisWeek[empIdx]++;
               weekdaysForSelection[0] = weekdaysForSelection[numAvailableWeekdays - 1];
               numAvailableWeekdays--;
           } else {
@@ -124,6 +130,14 @@ export function runScenario(scenarioName, numEmployees, availableSeats, employee
         }
       }
     }
+
+    // Calculate attendance distribution for this week
+    for (let empIdx = 0; empIdx < numEmployees; empIdx++) {
+      // Ensure days attended is within 0-5 range for indexing
+      const daysAttended = Math.min(DAYS_IN_WORK_WEEK, Math.max(0, employeeActualDaysThisWeek[empIdx]));
+      attendanceDistributionSums[daysAttended]++;
+    }
+
 
     for (let day = 0; day < DAYS_IN_WORK_WEEK; day++) {
       let currentDayAttendees = 0;
@@ -141,12 +155,23 @@ export function runScenario(scenarioName, numEmployees, availableSeats, employee
   if (numSimulationsConfig === 0) { // Should be caught by the numEmployees check earlier, but good for safety
     return {
       overallAverage: 0,
-      dailyAverages: Array(DAYS_IN_WORK_WEEK).fill(0)
+      dailyAverages: Array(DAYS_IN_WORK_WEEK).fill(0),
+      attendanceDistribution: Array(DAYS_IN_WORK_WEEK + 1).fill(0)
     };
   }
 
   const averageDailyShortages = dailyShortageSums.map(sum => sum / numSimulationsConfig);
   const overallAverageShortage = averageDailyShortages.reduce((acc, val) => acc + val, 0) / DAYS_IN_WORK_WEEK;
+  // Calculate average attendance distribution as percentage of total employee-weeks simulated
+  const totalEmployeeWeeksSimulated = numSimulationsConfig * numEmployees;
+  const averageAttendanceDistribution = attendanceDistributionSums.map(sum =>
+    totalEmployeeWeeksSimulated > 0 ? (sum / totalEmployeeWeeksSimulated) * 100 : 0
+  );
 
-  return { overallAverage: overallAverageShortage, dailyAverages: averageDailyShortages };
+
+  return {
+    overallAverage: overallAverageShortage,
+    dailyAverages: averageDailyShortages,
+    attendanceDistribution: averageAttendanceDistribution
+  };
 }

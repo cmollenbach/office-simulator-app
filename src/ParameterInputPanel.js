@@ -1,23 +1,26 @@
 // c:\Users\chris\Documents\office-simulator-app\src\ParameterInputPanel.js
 import React from 'react';
+import Papa from 'papaparse';
 
 const ParameterInputPanel = ({
   numEmployees,
   setNumEmployees,
   deskRatio,
   setDeskRatio,
-    meanPreference,
+  meanPreference,
   setMeanPreference,
   stdDevPreference,
   setStdDevPreference,
   numSimulations,
   setNumSimulations,
-    dayWeights,
+  dayWeights,
   setDayWeights,
   runAllSimulations,
   isLoading,
+  // Add a new prop to handle the imported data
+  onDataImported,
 }) => {
-      const weekDayNames = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+  const weekDayNames = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
   const handleDayWeightChange = (index, value) => {
     const newWeights = [...dayWeights];
@@ -31,6 +34,28 @@ const ParameterInputPanel = ({
   const currentDayWeights = Array.isArray(dayWeights) && dayWeights.length === 5
     ? dayWeights
     : [1, 1, 1, 1, 1]; // Default fallback if prop is not as expected
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      Papa.parse(file, {
+        header: false, // Assuming no header row in your CSV
+        skipEmptyLines: true,
+        dynamicTyping: true, // Automatically converts numbers
+        complete: (results) => {
+          // Pass the raw parsed data to the parent component for processing
+          if (onDataImported) {
+            onDataImported(results.data);
+          }
+        },
+        error: (error) => {
+          console.error("Error parsing CSV:", error);
+          alert("Error parsing CSV file. Please check the console.");
+        }
+      });
+      event.target.value = null; // Reset file input
+    }
+  };
 
   return (
     <div className="bg-gray-50 p-6 rounded-xl shadow-lg border border-gray-300 flex flex-col">
@@ -60,7 +85,7 @@ const ParameterInputPanel = ({
           />
         </div>
         <div className="flex flex-col">
-                      <label htmlFor="meanPreference" className="text-gray-700 font-semibold mb-2 text-sm">Avg. Preferred Days (0-5):</label>
+          <label htmlFor="meanPreference" className="text-gray-700 font-semibold mb-2 text-sm">Avg. Preferred Days (0-5):</label>
           <input
             type="number"
             id="meanPreference"
@@ -96,7 +121,7 @@ const ParameterInputPanel = ({
             step="100"
           />
         </div>
-                <div>
+        <div>
           <h3 className="text-gray-700 font-semibold mb-3 text-sm">Day of Week Popularity Weights:</h3>
           <div className="grid grid-cols-5 gap-2">
             {weekDayNames.map((dayName, index) => (
@@ -117,6 +142,24 @@ const ParameterInputPanel = ({
           </div>
            <p className="text-xs text-gray-500 mt-2 italic">
             Higher values mean the day is more popular for in-office attendance.
+          </p>
+        </div>
+        <div>
+          <label
+            htmlFor="csvUpload"
+            className="mt-4 inline-block bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-md cursor-pointer transition-colors duration-150 ease-in-out text-sm shadow"
+          >
+            Import Attendance CSV
+          </label>
+          <input
+            type="file"
+            id="csvUpload"
+            accept=".csv"
+            onChange={handleFileUpload}
+            className="hidden" // Hide the default input, style the label instead
+          />
+          <p className="text-xs text-gray-500 mt-1 italic">
+            CSV format: Date, DaysAttended (0-5), UniquePeopleCount
           </p>
         </div>
       </div>

@@ -4,13 +4,19 @@ import React from 'react';
 const ResultsDisplayPanel = ({
   results,
   isLoading,
-  chartRef,
+  currentViewMode,
+  setCurrentViewMode, // For the toggle
+  excludedWeeksLog,   // New prop for excluded weeks
+  showToggle,         // To conditionally render the toggle
+  // chartRef, // No longer receiving chartRef
   numSimulations,
   numEmployees,
   deskRatio,
 }) => {
   const hasResults = Object.keys(results).length > 0;
   const weekDayNames = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+  const attendanceDays = [0, 1, 2, 3, 4, 5];
+
 
   return (
     <div className="bg-gray-50 p-6 rounded-xl shadow-lg border border-gray-300 flex flex-col">
@@ -19,6 +25,7 @@ const ResultsDisplayPanel = ({
           <p className="text-xl mb-4">Welcome to the Simulator!</p>
           <p>Adjust the parameters on the left and click "Run Simulation" to see the results.</p>
           <p className="mt-2 text-sm">This simulation models weekly attendance targets.</p>
+          <p className="mt-4 text-base font-semibold text-indigo-700">Try importing a CSV to estimate parameters!</p>
         </div>
       )}
       {isLoading && !hasResults && (
@@ -32,10 +39,28 @@ const ResultsDisplayPanel = ({
       )}
       {hasResults && (
         <>
-          <h2 className="text-2xl font-semibold text-indigo-700 mb-2 pb-3 text-center border-b-2 border-indigo-100">Weekly Simulation: Daily Seat Shortage</h2>
-          <p className="text-gray-500 text-center text-xs italic mb-6"> 
-            (Avg. employees without a desk per day over {numSimulations} simulated weeks, with {numEmployees} employees and {Math.round(numEmployees * deskRatio)} available seats)
-          </p>
+          {/* View Mode Toggle Tabs */}
+          {showToggle && (
+            <div className="mb-4 flex border-b border-gray-300">
+              <button
+                onClick={() => setCurrentViewMode('modeled')}
+                className={`flex-1 py-2 px-4 text-center text-sm font-medium transition-colors focus:outline-none ${currentViewMode === 'modeled' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Modeled View (Normal Dist.)
+              </button>
+              <button
+                onClick={() => setCurrentViewMode('empirical')}
+                className={`flex-1 py-2 px-4 text-center text-sm font-medium transition-colors focus:outline-none ${currentViewMode === 'empirical' ? 'border-b-2 border-teal-600 text-teal-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Empirical View (CSV Based)
+              </button>
+            </div>
+          )}
+
+          {/* Daily Shortage Table */}
+       
+          <h2 className="text-xl font-semibold text-indigo-700 mb-2 pb-3 text-center border-b-2 border-indigo-100">Weekly Simulation: Daily Seat Shortage</h2>
+
           <div className="space-y-6 flex-grow">
             <div className="overflow-x-auto rounded-md shadow-lg border border-gray-200">
               <table className="min-w-full bg-white rounded-md overflow-hidden">
@@ -49,17 +74,19 @@ const ResultsDisplayPanel = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {Object.entries(results).map(([scenario, resultObj]) => (
+                  {Object.entries(results)
+                    .filter(([key, value]) => key !== "Imported CSV Data" && value && (Array.isArray(value.dailyAverages) || value.dailyAverages === null)) // Exclude "Imported CSV Data" from this table
+                    .map(([scenario, resultObj]) => (
                     <tr key={scenario} className="hover:bg-gray-50 transition-colors duration-150">
                       <td className="py-3 px-4 text-gray-800 text-sm">{scenario}</td>
                       <td className="py-3 px-4 text-gray-800 text-sm font-medium text-center">
-                         {resultObj && typeof resultObj.overallAverage === 'number' ? Math.round(resultObj.overallAverage) : 'N/A'}
+                         {resultObj && typeof resultObj.overallAverage === 'number' ? Math.round(resultObj.overallAverage) : (resultObj.overallAverage === null ? 'N/A' : 'Err')}
                       </td>
                       {weekDayNames.map((dayName, index) => (
                         <td key={`${scenario}-${dayName}`} className="py-3 px-2 text-gray-800 text-sm text-center">
                           {resultObj && Array.isArray(resultObj.dailyAverages) && typeof resultObj.dailyAverages[index] === 'number'
                                         ? Math.round(resultObj.dailyAverages[index])
-                            : 'N/A'}
+                                        : (resultObj.dailyAverages === null ? 'N/A' : 'Err')}
                         </td>
                       ))}
                     </tr>
@@ -68,12 +95,50 @@ const ResultsDisplayPanel = ({
               </table>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-md shadow-lg border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4 text-center">Visual comparison for each scenario</h3>
-              <div className="w-full overflow-x-auto">
-                <svg ref={chartRef} className="w-full h-80"></svg>
+            {/* Attendance Distribution Table */}
+            <div className="bg-gray-50 p-4 rounded-md shadow-lg border border-gray-200 mt-6">
+              <h3 className="text-xl font-semibold text-indigo-700 mb-4 text-center border-b-2 border-indigo-100 pb-3">Attendance Distribution Comparison (% of Employees)</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white rounded-md overflow-hidden">
+                  <thead className="bg-indigo-600 text-white">
+                    <tr>
+                      <th className="py-3 px-4 text-left text-sm font-semibold">Source / Scenario</th>
+                      {attendanceDays.map(days => (
+                        <th key={days} className="py-3 px-2 text-center text-sm font-semibold">{days} Day{days === 1 ? '' : 's'}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {Object.entries(results)
+                      .filter(([key, value]) => value && Array.isArray(value.attendanceDistribution) && value.attendanceDistribution.length === 6) // Ensure data is valid and has 6 distribution points
+                      .map(([scenarioName, data]) => (
+                      <tr key={scenarioName} className="hover:bg-gray-50 transition-colors duration-150">
+                        <td className="py-3 px-4 text-gray-800 text-sm">{scenarioName}</td>
+                        {data.attendanceDistribution.map((percentage, index) => (
+                          <td key={`${scenarioName}-dist-${index}`} className="py-3 px-2 text-gray-800 text-sm text-center">
+                            {typeof percentage === 'number' ? percentage.toFixed(1) : 'N/A'}%
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
+
+            {/* Display Excluded Outlier Weeks */}
+            {excludedWeeksLog && excludedWeeksLog.length > 0 && (
+              <div className="mt-6 p-4 bg-yellow-50 border border-yellow-300 rounded-md text-sm">
+                <h4 className="font-semibold text-yellow-800 mb-2">Note on Data Processing:</h4>
+                <p className="text-yellow-700">The following weeks were identified as potential outliers (e.g., holiday weeks with significantly lower attendance) and were excluded from parameter estimation and the "Imported CSV Data" distribution:</p>
+                <ul className="list-disc list-inside mt-2 text-yellow-700">
+                  {excludedWeeksLog.map((week, index) => (
+                    <li key={index}>{week}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
           </div>
         </>
       )}
