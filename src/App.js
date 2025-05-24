@@ -270,7 +270,7 @@ const App = () => {
         <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">Office Seat Utilization Simulator</h1>
 
         {/* Input Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="flex flex-col">
             <label htmlFor="employees" className="text-gray-700 font-medium mb-2">Number of Employees:</label>
             <input
@@ -344,32 +344,35 @@ const App = () => {
               <br/>
               (Based on {numEmployees} employees and {Math.round(numEmployees * deskRatio)} available seats)
             </p>
-
-            {/* Results Table */}
-            <div className="overflow-x-auto mb-8 rounded-lg shadow-md">
-              <table className="min-w-full bg-white rounded-lg overflow-hidden">
-                <thead className="bg-indigo-500 text-white">
-                  <tr>
-                    <th className="py-3 px-4 text-left text-sm font-semibold">Scenario</th>
-                    <th className="py-3 px-4 text-left text-sm font-semibold">Avg. % Without Seat</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {Object.entries(results).map(([scenario, percentage]) => (
-                    <tr key={scenario} className="hover:bg-gray-50 transition-colors duration-150">
-                      <td className="py-3 px-4 text-gray-800">{scenario}</td>
-                      <td className="py-3 px-4 text-gray-800 font-medium">{percentage.toFixed(2)}%</td>
+            
+            {/* Container for Table and Chart */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              {/* Results Table */}
+              <div className="overflow-x-auto rounded-lg shadow-md">
+                <table className="min-w-full bg-white rounded-lg overflow-hidden">
+                  <thead className="bg-indigo-500 text-white">
+                    <tr>
+                      <th className="py-3 px-4 text-left text-sm font-semibold">Scenario</th>
+                      <th className="py-3 px-4 text-left text-sm font-semibold">Avg. % Without Seat</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {Object.entries(results).map(([scenario, percentage]) => (
+                      <tr key={scenario} className="hover:bg-gray-50 transition-colors duration-150">
+                        <td className="py-3 px-4 text-gray-800">{scenario}</td>
+                        <td className="py-3 px-4 text-gray-800 font-medium">{percentage.toFixed(2)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-            {/* Results Chart */}
-            <div className="bg-gray-50 p-4 rounded-xl shadow-inner">
-              <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Visual Comparison</h3>
-              <div className="w-full overflow-x-auto">
-                <svg ref={chartRef} className="w-full h-96"></svg>
+              {/* Results Chart */}
+              <div className="bg-gray-50 p-4 rounded-xl shadow-inner">
+                <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Visual Comparison</h3>
+                <div className="w-full overflow-x-auto">
+                  <svg ref={chartRef} className="w-full h-96"></svg>
+                </div>
               </div>
             </div>
 
@@ -394,7 +397,7 @@ const App = () => {
 
               {llmInsights && (
                 <div className="bg-white p-4 rounded-lg border border-blue-100 text-gray-800 prose max-w-none">
-                  {llmInsights.split('\n').map((line, index) => (
+                  {llmInsights.split('\n').filter(line => line.trim() !== '').map((line, index) => (
                     <p key={index}>{line}</p>
                   ))}
                 </div>
