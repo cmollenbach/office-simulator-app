@@ -215,8 +215,6 @@ const App = () => {
     setIsLoadingLlm(true);
     setLlmInsights(""); // Clear previous insights
 
-    const sortedResults = Object.entries(results).sort(([, a], [, b]) => a - b);
-
     const prompt = `
       I have performed a Monte Carlo simulation for office seat utilization.
       Here are the simulation parameters:
