@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as d3 from 'd3'; // For charting
 
 // Helper function to generate a random number from a standard normal distribution (mean 0, std dev 1)
@@ -106,18 +106,25 @@ const App = () => {
     setIsLoading(false); // Set loading state to false
   };
 
-  // Effect hook to draw the chart whenever results change
-  useEffect(() => {
-    if (Object.keys(results).length > 0 && chartRef.current) {
-      drawChart();
-    }
-  }, [results]);
-
   // Function to draw the bar chart using D3.js
-  const drawChart = () => {
+  const drawChart = useCallback(() => {
+    // This function is called by the useEffect below, which already checks
+    // if results has data and chartRef.current is available.
+
     const data = Object.entries(results).map(([name, value]) => ({ name, value }));
 
     // Clear any existing chart
+    if (!chartRef.current) {
+      console.warn("Chart ref is not available for drawing.");
+      return;
+    }
+    // Ensure results has data, though the calling useEffect should handle this.
+    // This is more of a defensive check within drawChart itself.
+    if (data.length === 0) {
+      d3.select(chartRef.current).selectAll('*').remove(); // Clear if no data
+      return;
+    }
+
     d3.select(chartRef.current).selectAll('*').remove();
 
     const margin = { top: 20, right: 30, bottom: 120, left: 60 }; // Increased bottom margin for labels
@@ -137,8 +144,9 @@ const App = () => {
       .padding(0.2);
 
     // Y scale (percentage without seat)
+    const yMax = d3.max(data, d => d.value);
     const y = d3.scaleLinear()
-      .domain([0, d3.max(data, d => d.value) * 1.1]) // 10% buffer for max value
+      .domain([0, yMax !== undefined ? yMax * 1.1 : 10]) // 10% buffer, default max if no data
       .range([height, 0]);
 
     // Add X axis
@@ -192,7 +200,15 @@ const App = () => {
       .style("font-size", "12px")
       .style("fill", "#333")
       .text(d => `${d.value.toFixed(2)}%`);
-  };
+  }, [results]); // drawChart will be re-memoized only when 'results' changes.
+
+  // Effect hook to draw the chart whenever results or drawChart (which depends on results) change
+  useEffect(() => {
+    if (Object.keys(results).length > 0 && chartRef.current) {
+      drawChart();
+    }
+  }, [results, drawChart]); // Now drawChart is a stable dependency
+
 
   // Function to get LLM insights
   const getLlmInsights = async () => {
@@ -200,7 +216,6 @@ const App = () => {
     setLlmInsights(""); // Clear previous insights
 
     const sortedResults = Object.entries(results).sort(([, a], [, b]) => a - b);
-    const topScenarios = sortedResults.slice(0, 3); // Get top 3 best scenarios
 
     const prompt = `
       I have performed a Monte Carlo simulation for office seat utilization.
