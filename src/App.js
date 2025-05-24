@@ -270,8 +270,8 @@ const App = () => {
         <h1 className="text-4xl font-bold text-gray-900 mb-10 pb-6 text-center border-b-2 border-indigo-100">Office Seat Utilization Simulator</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8"> {/* Adjusted gap for consistency */}
-          {/* --- Column 1: Control Panel --- */}
-          <div className="bg-white p-6 rounded-xl shadow-xl border border-gray-200 flex flex-col"> {/* Changed bg, stronger shadow */}
+          {/* --- Column 1: Control Panel --- */} {/* Panel background changed for definition */}
+          <div className="bg-gray-50 p-6 rounded-xl shadow-lg border border-gray-300 flex flex-col">
             <h2 className="text-2xl font-semibold text-indigo-700 mb-6 pb-3 border-b-2 border-indigo-100">Simulation Parameters</h2> {/* Themed title */}
             {/* Input Section */}
             <div className="space-y-5"> {/* Slightly reduced space-y */}
@@ -282,7 +282,7 @@ const App = () => {
                   id="employees"
                   value={numEmployees}
                   onChange={(e) => setNumEmployees(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out" /* rounded-md, better transition */
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out" /* Added w-full */
                   min="1"
                 />
               </div>
@@ -293,7 +293,7 @@ const App = () => {
                   id="deskRatio"
                   value={deskRatio}
                   onChange={(e) => setDeskRatio(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
-                  className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out"
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out" /* Added w-full */
                   min="0.1"
                   step="0.05"
                 />
@@ -305,7 +305,7 @@ const App = () => {
                   id="stdDev"
                   value={stdDevPreference}
                   onChange={(e) => setStdDevPreference(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
-                  className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out"
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out" /* Added w-full */
                   min="0.1"
                   step="0.1"
                 />
@@ -317,7 +317,7 @@ const App = () => {
                   id="simulations"
                   value={numSimulations}
                   onChange={(e) => setNumSimulations(Math.max(1000, parseInt(e.target.value, 10) || 1000))}
-                  className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out"
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out" /* Added w-full */
                   min="1000"
                   step="1000"
                 />
@@ -341,7 +341,7 @@ const App = () => {
           </div>
 
           {/* --- Column 2: Results Display --- */}
-          <div className="bg-white p-6 rounded-xl shadow-xl border border-gray-200 flex flex-col"> {/* Changed bg, stronger shadow */}
+          <div className="bg-gray-50 p-6 rounded-xl shadow-lg border border-gray-300 flex flex-col"> {/* Panel background changed for definition */}
             {Object.keys(results).length === 0 && !isLoading && (
               <div className="flex-grow flex flex-col items-center justify-center text-center text-gray-500 p-4">
                 <p className="text-xl mb-4">Welcome to the Simulator!</p>
@@ -396,8 +396,8 @@ const App = () => {
           </div>
 
           {/* --- Column 3: Policy Insights --- */}
-          <div className="bg-indigo-50 p-6 rounded-xl shadow-xl border-2 border-indigo-200 flex flex-col"> {/* Stronger shadow & border */}
-            <h2 className="text-2xl font-semibold text-indigo-700 mb-6 pb-3 text-center flex items-center justify-center border-b-2 border-indigo-200"> {/* Consistent title theme */}
+          <div className="bg-indigo-50 p-6 rounded-xl shadow-lg border border-indigo-300 flex flex-col"> {/* Adjusted shadow & border for consistency */}
+            <h2 className="text-2xl font-semibold text-indigo-700 mb-6 pb-3 text-center flex items-center justify-center border-b-2 border-indigo-200">
               <span className="mr-2">✨</span> Policy Insights
             </h2>
             {Object.keys(results).length > 0 ? (
