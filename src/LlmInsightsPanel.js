@@ -1,5 +1,6 @@
 // c:\Users\chris\Documents\office-simulator-app\src\LlmInsightsPanel.js
 import React, { useEffect } from 'react';
+import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
 
 const LlmInsightsPanel = ({
@@ -60,4 +61,13 @@ const LlmInsightsPanel = ({
   );
 };
 
+LlmInsightsPanel.propTypes = {
+  modeledResults: PropTypes.object,
+  empiricalResults: PropTypes.object,
+  getLlmInsights: PropTypes.func.isRequired,
+  isLoadingLlm: PropTypes.bool.isRequired,
+  llmInsights: PropTypes.string,
+  isLoading: PropTypes.bool.isRequired,
+  // csvEmpiricalPreferences: PropTypes.array, // Not directly used for rendering, but passed to hook. Add if validation desired.
+};
 export default LlmInsightsPanel;

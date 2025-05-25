@@ -1,6 +1,7 @@
 // c:\Users\chris\Documents\office-simulator-app\src\ParameterInputPanel.js
 import React from 'react';
 import Papa from 'papaparse';
+import PropTypes from 'prop-types';
 
 const ParameterInputPanel = ({
   numEmployees,
@@ -219,6 +220,26 @@ const ParameterInputPanel = ({
       </button>
     </div>
   );
+};
+
+ParameterInputPanel.propTypes = {
+  numEmployees: PropTypes.number.isRequired,
+  setNumEmployees: PropTypes.func.isRequired,
+  deskRatio: PropTypes.number.isRequired,
+  setDeskRatio: PropTypes.func.isRequired,
+  meanPreference: PropTypes.number.isRequired,
+  setMeanPreference: PropTypes.func.isRequired,
+  stdDevPreference: PropTypes.number.isRequired,
+  setStdDevPreference: PropTypes.func.isRequired,
+  numSimulations: PropTypes.number.isRequired,
+  setNumSimulations: PropTypes.func.isRequired,
+  dayWeights: PropTypes.arrayOf(PropTypes.number).isRequired,
+  setDayWeights: PropTypes.func.isRequired,
+  baselineAbsenceRate: PropTypes.number.isRequired,
+  setBaselineAbsenceRate: PropTypes.func.isRequired,
+  runAllSimulations: PropTypes.func.isRequired,
+  isLoading: PropTypes.bool.isRequired,
+  onDataImported: PropTypes.func.isRequired,
 };
 
 export default ParameterInputPanel;
