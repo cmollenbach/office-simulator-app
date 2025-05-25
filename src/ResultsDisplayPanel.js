@@ -1,5 +1,6 @@
 // src/ResultsDisplayPanel.js
-import React from 'react'; // Removed useState as activeTab is now a prop
+import React from 'react';
+import PropTypes from 'prop-types';
 import Tippy from '@tippyjs/react';
 import LlmInsightsPanel from './LlmInsightsPanel'; // Import LlmInsightsPanel
 
@@ -13,9 +14,9 @@ const ResultsDisplayPanel = ({
   setCurrentViewMode, // For the "Simulation Results" tab's internal toggle
   showToggle,         // For the "Simulation Results" tab's internal toggle
   excludedWeeksLog,
-  numSimulations,
-  numEmployees,
-  deskRatio,
+  _numSimulations, // Marked as unused if not directly used in this component's render logic
+  _numEmployees,   // Marked as unused
+  _deskRatio,      // Marked as unused
   getLlmInsights,     // For LlmInsightsPanel
   isLoadingLlm,       // For LlmInsightsPanel
   llmInsights,        // For LlmInsightsPanel
@@ -70,7 +71,7 @@ const ResultsDisplayPanel = ({
             </thead>
             <tbody className="divide-y divide-gray-200">
               {Object.entries(results)
-                .filter(([key, value]) => key !== "Imported CSV Data" && value && (Array.isArray(value.dailyAverages) || value.dailyAverages === null))
+                .filter(([_key, value]) => _key !== "Imported CSV Data" && value && (Array.isArray(value.dailyAverages) || value.dailyAverages === null)) // Already fixed, ensure it's correct
                 .map(([scenario, resultObj]) => (
                 <tr key={scenario} className="hover:bg-gray-50 transition-colors duration-150">
                   <td className="py-3 px-4 text-gray-800 text-sm">{scenario}</td>
@@ -107,13 +108,13 @@ const ResultsDisplayPanel = ({
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {Object.entries(results)
-                  .filter(([key, value]) => value && Array.isArray(value.attendanceDistribution) && value.attendanceDistribution.length === 6)
+                  .filter(([_key, value]) => value && Array.isArray(value.attendanceDistribution) && value.attendanceDistribution.length === 6)
                   .map(([scenarioName, data]) => (
                   <tr key={scenarioName} className="hover:bg-gray-50 transition-colors duration-150">
                     <td className="py-3 px-4 text-gray-800 text-sm">{scenarioName}</td>
                     {data.attendanceDistribution.map((percentage, index) => (
                       <td key={`${scenarioName}-dist-${index}`} className="py-3 px-2 text-gray-800 text-sm text-center">
-                        {typeof percentage === 'number' ? percentage.toFixed(1) : 'N/A'}%
+                        {typeof percentage === 'number' ? Math.round(percentage) : 'N/A'}%
                       </td>
                     ))}
                   </tr>
@@ -126,7 +127,7 @@ const ResultsDisplayPanel = ({
          {excludedWeeksLog && excludedWeeksLog.length > 0 && (
           <div className="mt-6 p-4 bg-yellow-50 border border-yellow-300 rounded-md text-sm">
             <h4 className="font-semibold text-yellow-800 mb-2">Note on Data Processing:</h4>
-            <p className="text-yellow-700">The following weeks were identified as potential outliers and were excluded from parameter estimation and the "Imported CSV Data" distribution:</p>
+            <p className="text-yellow-700">The following weeks were identified as potential outliers and were excluded from parameter estimation and the &quot;Imported CSV Data&quot; distribution:</p>
             <ul className="list-disc list-inside mt-2 text-yellow-700">
               {excludedWeeksLog.map((week, index) => (
                 <li key={index}>{week}</li>
@@ -162,7 +163,7 @@ const ResultsDisplayPanel = ({
           {!hasSimulationResults && !isLoading && (
             <div className="flex-grow flex flex-col items-center justify-center text-center text-gray-500 p-4">
               <p className="text-xl mb-4">Welcome to the Simulator!</p>
-              <p>Adjust the parameters on the left and click "Run Simulation" to see the results.</p>
+              <p>Adjust the parameters on the left and click &quot;Run Simulation&quot; to see the results.</p>
             </div>
           )}
           {isLoading && ( // Show progress bar whenever loading, even if there are old results
@@ -200,5 +201,33 @@ const ResultsDisplayPanel = ({
     </div>
   );
 };
+
+ResultsDisplayPanel.propTypes = {
+  results: PropTypes.object.isRequired,
+  modeledResults: PropTypes.object.isRequired,
+  empiricalResults: PropTypes.object.isRequired,
+  csvEmpiricalPreferences: PropTypes.array, // Can be null or an array
+  isLoading: PropTypes.bool.isRequired,
+  currentViewMode: PropTypes.string.isRequired,
+  setCurrentViewMode: PropTypes.func.isRequired,
+  showToggle: PropTypes.bool.isRequired,
+  excludedWeeksLog: PropTypes.arrayOf(PropTypes.string).isRequired,
+  _numSimulations: PropTypes.number.isRequired,
+  _numEmployees: PropTypes.number.isRequired,
+  _deskRatio: PropTypes.number.isRequired,
+  getLlmInsights: PropTypes.func.isRequired,
+  isLoadingLlm: PropTypes.bool.isRequired,
+  llmInsights: PropTypes.string.isRequired,
+  activeTab: PropTypes.string.isRequired,
+  _scenarioProgress: PropTypes.object.isRequired,
+  overallProgress: PropTypes.number.isRequired,
+  setActiveTab: PropTypes.func.isRequired,
+};
+
+// Default props can be useful if some props are not always required
+ResultsDisplayPanel.defaultProps = {
+  csvEmpiricalPreferences: null,
+};
+
 
 export default ResultsDisplayPanel;
