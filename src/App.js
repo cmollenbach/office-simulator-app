@@ -20,7 +20,7 @@ const App = () => {
   const [stdDevPreference, setStdDevPreference] = useState(1.5);
   const [numSimulations, setNumSimulations] = useState(10000);
   const [dayWeights, setDayWeights] = useState([0.9, 1.1, 1.1, 1.1, 0.8]);
-  const [baselineAbsenceRate, setBaselineAbsenceRate] = useState(0.1);
+  const [baselineAbsenceRate, setBaselineAbsenceRate] = useState(0.05);
   const [csvEmpiricalPreferences, setCsvEmpiricalPreferences] = useState(null);
   const [excludedWeeksLog, setExcludedWeeksLog] = useState([]);
 
