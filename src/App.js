@@ -1,90 +1,77 @@
 // src/App.js
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 
-// CORRECTED IMPORT STATEMENT
 import {
   generateNormalRandom,
   DAYS_IN_WORK_WEEK,
   SCENARIO_NAMES,
-  SCENARIO_RULES // Ensure this is exported from simulationUtils.js
-} from './simulationUtils';
+  SCENARIO_RULES
+} from './simulationUtils'; // cmollenbach/office-simulator-app/office-simulator-app-3dcf7f354f7e30b9980f5170ed854316c41c8c9c/src/simulationUtils.js
 
-import ParameterInputPanel from './ParameterInputPanel';
-import ResultsDisplayPanel from './ResultsDisplayPanel';
-// LlmInsightsPanel is no longer directly rendered here
-import useLlmInsights from './useLlmInsights';
-import 'tippy.js/dist/tippy.css'; // Ensure Tippy CSS is imported
+import ParameterInputPanel from './ParameterInputPanel'; // cmollenbach/office-simulator-app/office-simulator-app-3dcf7f354f7e30b9980f5170ed854316c41c8c9c/src/ParameterInputPanel.js
+import ResultsDisplayPanel from './ResultsDisplayPanel'; // cmollenbach/office-simulator-app/office-simulator-app-3dcf7f354f7e30b9980f5170ed854316c41c8c9c/src/ResultsDisplayPanel.js
+import useLlmInsights from './useLlmInsights'; // cmollenbach/office-simulator-app/office-simulator-app-3dcf7f354f7e30b9980f5170ed854316c41c8c9c/src/useLlmInsights.js
+import 'tippy.js/dist/tippy.css';
 
-// Main App component
 const App = () => {
-  // Input state variables
   const [numEmployees, setNumEmployees] = useState(100);
-  const [deskRatio, setDeskRatio] = useState(0.4);
+  const [deskRatio, setDeskRatio] = useState(0.45);
   const [meanPreference, setMeanPreference] = useState(3);
   const [stdDevPreference, setStdDevPreference] = useState(1.5);
   const [numSimulations, setNumSimulations] = useState(10000);
-  const [dayWeights, setDayWeights] = useState([1, 1, 1, 1, 1]);
+  const [dayWeights, setDayWeights] = useState([0.9, 1.1, 1.1, 1.1, 0.8]);
+  const [baselineAbsenceRate, setBaselineAbsenceRate] = useState(0.1); // New state, default 5%
   const [csvEmpiricalPreferences, setCsvEmpiricalPreferences] = useState(null);
   const [excludedWeeksLog, setExcludedWeeksLog] = useState([]);
 
-  // State to store simulation results for both views
   const [empiricalResults, setEmpiricalResults] = useState({});
   const [modeledResults, setModeledResults] = useState({});
   const [currentViewMode, setCurrentViewMode] = useState('modeled');
-  const [activeTab, setActiveTab] = useState('simulation'); // Lifted from ResultsDisplayPanel
-  // State to manage loading indicator for simulation
+  const [activeTab, setActiveTab] = useState('simulation');
   const [isLoading, setIsLoading] = useState(false);
-  const [_scenarioProgress, setScenarioProgress] = useState({}); // Prefixed to satisfy ESLint, as it's used in setScenarioProgress(prev => ...)
-  const [overallProgress, setOverallProgress] = useState(0);    // Overall progress for current batch
+  const [_scenarioProgress, setScenarioProgress] = useState({});
+  const [overallProgress, setOverallProgress] = useState(0);
 
-  // Worker related state and refs
   const workerRef = useRef(null);
   const pendingJobsRef = useRef(0);
   const currentModeledResultsRef = useRef({});
   const currentEmpiricalResultsRef = useRef({});
-  const insightsRefreshPendingRef = useRef(false); // To signal a refresh is needed
+  const insightsRefreshPendingRef = useRef(false);
 
-  // Helper function to dispatch jobs to the worker
-  // Wrapped in useCallback to stabilize its reference if other dependencies are stable
-  const runSimulationsWithPreferences = useCallback((workerId, preferencesToUse, availableSeats) => {
+  const runSimulationsWithPreferences = useCallback((workerId, preferencesToUse, numActiveSimEmployees, availableSeats) => {
     if (!workerRef.current) {
-      console.log("App.js: runSimulationsWithPreferences - workerRef is null or not initialized. WorkerId:", workerId);
-      console.warn("Worker not initialized in runSimulationsWithPreferences for workerId:", workerId, "Might be during cleanup.");
-      setIsLoading(false); // Ensure loading state is handled
+      console.warn("Worker not initialized in runSimulationsWithPreferences for workerId:", workerId);
+      setIsLoading(false);
       return;
     }
 
-    // pendingJobsRef.current is now set *before* calling this function for a new batch
-
     if (workerId === 'modeled') {
-        currentModeledResultsRef.current = currentModeledResultsRef.current["Imported CSV Data"] // Preserve existing CSV data if any
+        currentModeledResultsRef.current = currentModeledResultsRef.current["Imported CSV Data"]
         ? { "Imported CSV Data": currentModeledResultsRef.current["Imported CSV Data"] }
         : {};
     } else if (workerId === 'empirical') {
-        currentEmpiricalResultsRef.current = currentEmpiricalResultsRef.current["Imported CSV Data"] // Preserve existing CSV data
+        currentEmpiricalResultsRef.current = currentEmpiricalResultsRef.current["Imported CSV Data"]
         ? { "Imported CSV Data": currentEmpiricalResultsRef.current["Imported CSV Data"] }
         : {};
     }
 
     for (const scenarioName of SCENARIO_NAMES) {
-      console.log(`App.js: Posting job to worker for scenario: ${scenarioName}, workerId: ${workerId}`);
       workerRef.current.postMessage({
         workerId,
         scenarioName,
-        numEmployees,
+        numEmployees: numActiveSimEmployees, // Use active employees for simulation
+        numTotalEmployees: numEmployees, // Pass total for context if needed by worker for specific metrics
         availableSeats,
         employeePreferences: preferencesToUse,
-        numSimulationsConfig: numSimulations, // Ensure this matches worker's expectation
+        numSimulationsConfig: numSimulations,
         customDayWeights: dayWeights,
-        scenarioRules: SCENARIO_RULES
+        scenarioRules: SCENARIO_RULES,
+        baselineAbsenceRate: baselineAbsenceRate, // Pass the rate to the worker
       });
     }
-  }, [numEmployees, numSimulations, dayWeights]); // Removed modeledResults, empiricalResults
+  }, [numEmployees, numSimulations, dayWeights, baselineAbsenceRate]); // Added baselineAbsenceRate
 
-
-  // Effect to initialize and manage the Web Worker
   useEffect(() => {
-    console.log("App.js: Worker useEffect - Setting up new worker. Dependencies changed or initial setup.");
     const newWorker = new Worker(process.env.PUBLIC_URL + '/simulation.worker.js');
     workerRef.current = newWorker;
 
@@ -92,7 +79,8 @@ const App = () => {
       const { type, workerId, scenarioName, results, progress, error } = event.data;
 
       if (type === 'progress') {
-        setScenarioProgress(prev => {
+        // ... (progress logic largely unchanged, ensure it accounts for batches correctly)
+         setScenarioProgress(prev => {
           const updated = { ...prev, [scenarioName]: progress };
           const totalScenariosInBatch = SCENARIO_NAMES.length;
           if (totalScenariosInBatch > 0) {
@@ -106,7 +94,6 @@ const App = () => {
             if (workerId === 'modeled') {
               newOverallProgress = currentBatchAverageProgress / numTotalBatches;
             } else if (workerId === 'empirical') {
-              // Modeled part is 100% / numTotalBatches (e.g., 50% if 2 batches)
               newOverallProgress = (100 / numTotalBatches) + (currentBatchAverageProgress / numTotalBatches);
             }
             setOverallProgress(Math.min(100, Math.round(newOverallProgress)));
@@ -114,13 +101,10 @@ const App = () => {
           return updated;
         });
       } else if (type === 'result') {
-        console.log(`App.js: Worker result received for ${scenarioName} (${workerId}). Pending jobs before: ${pendingJobsRef.current}`);
-        setScenarioProgress(prevScenarioProgress => { // Use a different name for prev state to avoid conflict
-          const updated = { ...prevScenarioProgress, [scenarioName]: 100 }; // Mark as 100% done
+         setScenarioProgress(prevScenarioProgress => {
+          const updated = { ...prevScenarioProgress, [scenarioName]: 100 };
           const totalScenariosInBatch = SCENARIO_NAMES.length;
            if (totalScenariosInBatch > 0) {
-            // Recalculate overall progress based on this scenario finishing
-            // This logic is now similar to the 'progress' type, ensuring 100% for this scenario
             const currentProgressSum = Object.values(updated).reduce((sum, p) => sum + p, 0);
             const currentBatchAverageProgress = currentProgressSum / totalScenariosInBatch;
 
@@ -137,7 +121,7 @@ const App = () => {
           }
           return updated;
         });
-
+        
         if (workerId === 'modeled') {
           currentModeledResultsRef.current[scenarioName] = results;
         } else if (workerId === 'empirical') {
@@ -146,14 +130,14 @@ const App = () => {
 
         pendingJobsRef.current -= 1;
         if (pendingJobsRef.current === 0) {
-          // All jobs for the current workerId batch are done
-          console.log(`App.js: All jobs completed for workerId: ${workerId}`);
+          const numActiveEmployeesForSim = Math.round(numEmployees * (1 - baselineAbsenceRate));
           if (workerId === 'modeled') {
             setModeledResults({ ...currentModeledResultsRef.current });
             if (csvEmpiricalPreferences && csvEmpiricalPreferences.length > 0) {
               const availableSeats = Math.round(numEmployees * deskRatio);
+              // Ensure empirical preferences are sampled for the *active* number of employees
               const empiricalEmployeePreferencesForWorker = Array.from(
-                { length: numEmployees },
+                { length: numActiveEmployeesForSim }, // Use active employees
                 () => csvEmpiricalPreferences[Math.floor(Math.random() * csvEmpiricalPreferences.length)]
               );
               
@@ -161,14 +145,12 @@ const App = () => {
                 ? { "Imported CSV Data": currentEmpiricalResultsRef.current["Imported CSV Data"] }
                 : {};
               
-              // Reset progress for the empirical batch
               const initialEmpiricalProgress = SCENARIO_NAMES.reduce((acc, name) => ({ ...acc, [name]: 0 }), {});
               setScenarioProgress(initialEmpiricalProgress);
-              setOverallProgress(0);
+               // Overall progress reset handled by the first progress event of the new batch
 
-              console.log("App.js: Chaining to empirical simulation.");
               pendingJobsRef.current = SCENARIO_NAMES.length;
-              runSimulationsWithPreferences('empirical', empiricalEmployeePreferencesForWorker, availableSeats);
+              runSimulationsWithPreferences('empirical', empiricalEmployeePreferencesForWorker, numActiveEmployeesForSim, availableSeats);
               setCurrentViewMode('empirical');
             } else {
               setCurrentViewMode('modeled');
@@ -182,10 +164,7 @@ const App = () => {
         }
       } else if (type === 'error') {
         console.error(`App.js: Error from worker for ${scenarioName} (${workerId}):`, error.message, error.stack);
-        // Potentially set progress to an error state or 0
-        setOverallProgress(0); // Or some error indication
-        // Decrement pending jobs if an error occurs for one job,
-        // to prevent getting stuck if other jobs complete.
+        setOverallProgress(0);
         pendingJobsRef.current -=1;
         if (pendingJobsRef.current === 0) setIsLoading(false);
       }
@@ -199,46 +178,41 @@ const App = () => {
     };
 
     return () => {
-      console.log("App.js: Worker useEffect - Terminating old worker.");
       if (workerRef.current) {
         workerRef.current.terminate();
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [csvEmpiricalPreferences, numEmployees, deskRatio, runSimulationsWithPreferences]); // Added runSimulationsWithPreferences
+  }, [csvEmpiricalPreferences, numEmployees, deskRatio, runSimulationsWithPreferences, baselineAbsenceRate]); // Added baselineAbsenceRate dependency
 
   const { llmInsights, isLoadingLlm, fetchLlmInsightsData, clearLlmInsights } = useLlmInsights();
 
   const handleGetLlmInsights = useCallback(() => {
     fetchLlmInsightsData({
-      numEmployees,
+      numEmployees, // This should be the total employees for context
       deskRatio,
-      meanPreference,
-      stdDevPreference,
+      meanPreference, // This preference is for the active set
+      stdDevPreference, // This preference is for the active set
       dayWeights,
       numSimulations,
+      baselineAbsenceRate, // Add new rate
       modeledResults,
       empiricalResults: (csvEmpiricalPreferences && Object.keys(empiricalResults).length > 0) ? empiricalResults : null,
       csvAvailable: !!csvEmpiricalPreferences
     });
-  }, [fetchLlmInsightsData, numEmployees, deskRatio, meanPreference, stdDevPreference, dayWeights, numSimulations, modeledResults, empiricalResults, csvEmpiricalPreferences]);
+  }, [fetchLlmInsightsData, numEmployees, deskRatio, meanPreference, stdDevPreference, dayWeights, numSimulations, baselineAbsenceRate, modeledResults, empiricalResults, csvEmpiricalPreferences]);
 
-
-  // Effect to automatically refresh insights after a simulation completes if on the insights tab
   useEffect(() => {
     if (!isLoading && activeTab === 'insights' && insightsRefreshPendingRef.current) {
       const hasModeledData = modeledResults && Object.keys(modeledResults).filter(key => key !== "Imported CSV Data").length > 0;
       const hasEmpiricalData = empiricalResults && Object.keys(empiricalResults).filter(key => key !== "Imported CSV Data").length > 0;
 
       if (hasModeledData || hasEmpiricalData) {
-        // console.log("App.js useEffect triggering insights refresh after simulation.");
         handleGetLlmInsights();
       }
-      insightsRefreshPendingRef.current = false; // Reset the flag
+      insightsRefreshPendingRef.current = false;
     }
-  }, [isLoading, activeTab, modeledResults, empiricalResults, handleGetLlmInsights]); // handleGetLlmInsights is a dependency
+  }, [isLoading, activeTab, modeledResults, empiricalResults, handleGetLlmInsights]);
 
-  // Effect to clear the refresh pending flag if the user navigates away from insights tab
   useEffect(() => {
     if (activeTab !== 'insights') insightsRefreshPendingRef.current = false;
   }, [activeTab]);
@@ -248,26 +222,23 @@ const App = () => {
     : modeledResults;
 
   const runAllSimulations = useCallback(() => {
-    console.log("App.js: runAllSimulations called.");
     if (!workerRef.current) {
       alert("Simulation worker is not ready. Please try again in a moment.");
-      console.error("App.js: runAllSimulations - workerRef is null. Cannot start simulation.");
       return;
     }
     setIsLoading(true);
     if (clearLlmInsights) clearLlmInsights();
-    insightsRefreshPendingRef.current = true; // Signal that insights should be refreshed after this run
+    insightsRefreshPendingRef.current = true;
     
-    // Reset progress for the modeled batch
     const initialModeledProgress = SCENARIO_NAMES.reduce((acc, name) => ({ ...acc, [name]: 0 }), {});
     setScenarioProgress(initialModeledProgress);
     setOverallProgress(0);
 
-    // Set pending jobs for the initial modeled batch
     pendingJobsRef.current = SCENARIO_NAMES.length;
 
     const availableSeats = Math.round(numEmployees * deskRatio);
-    // Preserve "Imported CSV Data" if it exists from a previous CSV import
+    const numActiveEmployeesForSim = Math.round(numEmployees * (1 - baselineAbsenceRate));
+
     const initialModeled = currentModeledResultsRef.current["Imported CSV Data"]
         ? { "Imported CSV Data": currentModeledResultsRef.current["Imported CSV Data"] }
         : {};
@@ -277,19 +248,21 @@ const App = () => {
     setModeledResults(initialModeled);
     setEmpiricalResults(initialEmpirical);
 
-    const modeledEmployeePreferences = Array.from({ length: numEmployees }, () => {
+    // Generate preferences for the active number of employees
+    const modeledEmployeePreferences = Array.from({ length: numActiveEmployeesForSim }, () => {
       return Math.min(DAYS_IN_WORK_WEEK, Math.max(0, Math.round(generateNormalRandom(meanPreference, stdDevPreference))));
     });
-    console.log("App.js: runAllSimulations - Dispatching 'modeled' simulations.");
-    runSimulationsWithPreferences('modeled', modeledEmployeePreferences, availableSeats);
+    
+    runSimulationsWithPreferences('modeled', modeledEmployeePreferences, numActiveEmployeesForSim, availableSeats);
     setCurrentViewMode('modeled');
   }, [
       numEmployees,
       deskRatio,
       meanPreference,
       stdDevPreference,
+      baselineAbsenceRate, // Add new rate
       runSimulationsWithPreferences,
-      clearLlmInsights // Ensure clearLlmInsights is here
+      clearLlmInsights
     ]);
 
 
@@ -299,6 +272,7 @@ const App = () => {
       return;
     }
 
+    // ... (existing weeklyData aggregation) ...
     const weeklyData = {};
     csvData.forEach(row => {
       if (row.length < 3 || typeof row[0] !== 'string' || typeof row[1] !== 'number' || typeof row[2] !== 'number') {
@@ -322,6 +296,10 @@ const App = () => {
         weeklyData[weekIdentifier].weightedDaysSum += daysAttended * peopleCount;
       }
     });
+    // ... (existing outlier detection - this might need review in context of baselineAbsenceRate) ...
+    // For simplicity, the baselineAbsenceRate primarily affects the interpretation of mean/stdDev preference
+    // rather than directly altering the raw CSV sum for "Imported CSV Data" display.
+    // The simulation's empirical run will use preferences from employees *not* part of the baseline absence.
 
     const currentExcludedWeeks = [];
     let lowerBoundTotalAttendance = -Infinity;
@@ -335,8 +313,6 @@ const App = () => {
       const q3Total = sortedTotals[Math.floor(sortedTotals.length * 3 / 4)];
       const iqrTotal = q3Total - q1Total;
       lowerBoundTotalAttendance = q1Total - 1.5 * iqrTotal;
-    } else {
-      console.warn("Not enough weekly data to perform robust outlier detection for total attendance. Using all data for this metric.");
     }
 
     const weeklyZeroAttendanceCounts = Object.values(weeklyData).map(week => week.attendanceDistribution[0]);
@@ -346,14 +322,12 @@ const App = () => {
         const q3Zero = sortedZeroCounts[Math.floor(sortedZeroCounts.length * 3 / 4)];
         const iqrZero = q3Zero - q1Zero;
         upperBoundZeroAttendance = q3Zero + 1.5 * iqrZero;
-    } else {
-        console.warn("Not enough weekly data to perform robust outlier detection for zero attendance. Using all data for this metric.");
     }
-
+    
     const nonOutlierWeeksData = [];
     let totalPeopleSum = 0;
-    let allIndividualPreferencesFromCsv = [];
-    const csvAttendanceDistributionSums = Array(6).fill(0);
+    let allIndividualPreferencesFromCsvActive = []; // For active employees
+    const csvAttendanceDistributionSums = Array(DAYS_IN_WORK_WEEK + 1).fill(0); // Raw distribution sum
     let csvTotalEmployeeWeeks = 0;
 
     for (const weekKey in weeklyData) {
@@ -371,32 +345,51 @@ const App = () => {
       }
       
       if (isOutlier) {
-        console.log(`Excluding outlier week: ${weekKey} (Total people: ${week.totalPeopleThisWeek}, Zero attendance: ${week.attendanceDistribution[0]}). Reason: ${outlierReason.join(', ')}`);
         currentExcludedWeeks.push(`${weekKey} (Reason: ${outlierReason.join('; ')})`);
       } else {
         nonOutlierWeeksData.push(week);
         totalPeopleSum += week.totalPeopleThisWeek;
         csvTotalEmployeeWeeks += week.totalPeopleThisWeek;
 
-        for (let days = 0; days <= 5; days++) {
-          for (let i = 0; i < week.attendanceDistribution[days]; i++) {
-            allIndividualPreferencesFromCsv.push(days);
-          }
+        // Store raw distribution for the "Imported CSV Data" display
+        for (let days = 0; days <= DAYS_IN_WORK_WEEK; days++) {
           csvAttendanceDistributionSums[days] += week.attendanceDistribution[days];
+        }
+        
+        // Create preference list for *active* employees from this week's data.
+        // Account for baselineAbsenceRate by primarily removing from the 0-day bucket.
+        const numBaselineAbsentThisWeek = Math.round(week.totalPeopleThisWeek * baselineAbsenceRate);
+        let remainingBaselineAbsentToAccountFor = numBaselineAbsentThisWeek;
+
+        for (let days = 0; days <= DAYS_IN_WORK_WEEK; days++) {
+            let countForThisBucket = week.attendanceDistribution[days];
+            let chosenCountForThisBucket = 0;
+
+            if (days === 0) {
+                // Of those who attended 0 days, how many were baseline absent vs. chose 0?
+                const baselineAbsentFromThisBucket = Math.min(countForThisBucket, remainingBaselineAbsentToAccountFor);
+                chosenCountForThisBucket = countForThisBucket - baselineAbsentFromThisBucket;
+                remainingBaselineAbsentToAccountFor -= baselineAbsentFromThisBucket;
+            } else {
+                // For days > 0, assume all are choices by active employees.
+                chosenCountForThisBucket = countForThisBucket;
+            }
+
+            for (let i = 0; i < chosenCountForThisBucket; i++) {
+                allIndividualPreferencesFromCsvActive.push(days);
+            }
         }
       }
     }
 
-    if (nonOutlierWeeksData.length === 0) {
+    if (nonOutlierWeeksData.length === 0) { // Check if any valid weeks remain
       alert("No valid (non-outlier) weekly data found after processing.");
       setCsvEmpiricalPreferences(null);
       setExcludedWeeksLog([]);
       const noCsvDataEntry = {
         "Imported CSV Data": {
-          overallAverage: null,
-          dailyAverages: null,
-          averagePreferenceDeviation: null,
-          attendanceDistribution: Array(6).fill(0)
+          overallAverage: null, dailyAverages: null, averagePreferenceDeviation: null,
+          attendanceDistribution: Array(DAYS_IN_WORK_WEEK + 1).fill(0)
         }
       };
       setModeledResults(prev => ({ ...prev, ...noCsvDataEntry }));
@@ -404,59 +397,79 @@ const App = () => {
       return;
     }
 
-    const estimatedNumEmployees = Math.round(totalPeopleSum / nonOutlierWeeksData.length);
-    const estimatedMeanPreference = allIndividualPreferencesFromCsv.length > 0 ? allIndividualPreferencesFromCsv.reduce((sum, val) => sum + val, 0) / allIndividualPreferencesFromCsv.length : 0;
-    
-    let variance = 0;
-    if (allIndividualPreferencesFromCsv.length > 0) {
-      const mean = estimatedMeanPreference;
-      variance = allIndividualPreferencesFromCsv.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / allIndividualPreferencesFromCsv.length;
+    // Update numEmployees based on average from CSV
+    const averagePeoplePerWeek = nonOutlierWeeksData.length > 0 ? totalPeopleSum / nonOutlierWeeksData.length : numEmployees;
+    const newNumEmployees = Math.round(averagePeoplePerWeek);
+    if (newNumEmployees > 0) {
+        setNumEmployees(newNumEmployees);
     }
-    const estimatedStdDevPreference = Math.sqrt(variance);
 
-    const csvAverageAttendanceDistribution = csvTotalEmployeeWeeks > 0 ? csvAttendanceDistributionSums.map(sum => (sum / csvTotalEmployeeWeeks) * 100) : Array(6).fill(0);
+    if (allIndividualPreferencesFromCsvActive.length === 0) {
+      alert("No active employee preferences could be derived from the CSV data (e.g., all attendance was attributed to baseline absence). Parameters not updated.");
+      // Potentially reset CSV related states or show the raw distribution only
+      const csvResultEntryOnlyRaw = {
+        "Imported CSV Data": {
+          overallAverage: null, dailyAverages: null, averagePreferenceDeviation: null,
+          attendanceDistribution: csvTotalEmployeeWeeks > 0
+            ? csvAttendanceDistributionSums.map(sum => (sum / csvTotalEmployeeWeeks) * 100)
+            : Array(DAYS_IN_WORK_WEEK + 1).fill(0)
+        }
+      };
+      setModeledResults(prev => ({ ...prev, ...csvResultEntryOnlyRaw }));
+      setEmpiricalResults(prev => ({ ...prev, ...csvResultEntryOnlyRaw }));
+      setCsvEmpiricalPreferences(null); // No preferences for empirical run
+      setExcludedWeeksLog(currentExcludedWeeks);
+      return;
+    }
+    
+    // Calculate overall CSV distribution (raw, for display)
+    const csvOverallAverageAttendanceDistribution = csvTotalEmployeeWeeks > 0
+      ? csvAttendanceDistributionSums.map(sum => (sum / csvTotalEmployeeWeeks) * 100)
+      : Array(DAYS_IN_WORK_WEEK + 1).fill(0);
 
-    const finalNumEmployees = estimatedNumEmployees > 0 ? estimatedNumEmployees : 100;
-    const finalMeanPreference = !isNaN(estimatedMeanPreference) && estimatedMeanPreference >= 0 && estimatedMeanPreference <= 5 ? parseFloat(estimatedMeanPreference.toFixed(1)) : 3;
-    const finalStdDevPreference = !isNaN(estimatedStdDevPreference) && estimatedStdDevPreference > 0 ? parseFloat(estimatedStdDevPreference.toFixed(1)) : 0.8;
+    // Parameters estimated from the *active* CSV preferences
+    const estimatedMeanPreferenceActive = allIndividualPreferencesFromCsvActive.reduce((sum, val) => sum + val, 0) / allIndividualPreferencesFromCsvActive.length;
+    let varianceActive = 0;
+    const meanActive = estimatedMeanPreferenceActive; // Use this for clarity
+    varianceActive = allIndividualPreferencesFromCsvActive.reduce((sum, val) => sum + Math.pow(val - meanActive, 2), 0) / allIndividualPreferencesFromCsvActive.length;
+    const estimatedStdDevPreferenceActive = Math.sqrt(varianceActive);
 
-    setNumEmployees(finalNumEmployees);
-    setMeanPreference(finalMeanPreference);
-    setStdDevPreference(finalStdDevPreference);
-    setCsvEmpiricalPreferences(allIndividualPreferencesFromCsv.length > 0 ? allIndividualPreferencesFromCsv : null);
+    // Update global parameters based on the active set's preferences
+    setMeanPreference(!isNaN(meanActive) && meanActive >= 0 && meanActive <= DAYS_IN_WORK_WEEK ? parseFloat(meanActive.toFixed(1)) : 3);
+    setStdDevPreference(!isNaN(estimatedStdDevPreferenceActive) && estimatedStdDevPreferenceActive > 0 ? parseFloat(estimatedStdDevPreferenceActive.toFixed(1)) : 0.8);
+    
+    setCsvEmpiricalPreferences(allIndividualPreferencesFromCsvActive); // This list is for active employees
     setExcludedWeeksLog(currentExcludedWeeks);
 
     const csvResultEntry = {
       "Imported CSV Data": {
-        overallAverage: null,
-        dailyAverages: null,
-        averagePreferenceDeviation: null,
-        attendanceDistribution: csvAverageAttendanceDistribution
+        overallAverage: null, dailyAverages: null, averagePreferenceDeviation: null,
+        attendanceDistribution: csvOverallAverageAttendanceDistribution // Display raw historical distribution
       }
     };
     
     setModeledResults(prev => ({ ...prev, ...csvResultEntry }));
     setEmpiricalResults(prev => ({ ...prev, ...csvResultEntry }));
-    if (currentModeledResultsRef.current) { 
+     if (currentModeledResultsRef.current) { 
         currentModeledResultsRef.current = { ...currentModeledResultsRef.current, ...csvResultEntry };
     }
     if (currentEmpiricalResultsRef.current) { 
         currentEmpiricalResultsRef.current = { ...currentEmpiricalResultsRef.current, ...csvResultEntry };
     }
-    
-    setCurrentViewMode('empirical');
 
-    let alertMessage = `Parameters estimated from CSV and applied.\nEmployees: ${finalNumEmployees}\nAvg. Preferred Days: ${finalMeanPreference.toFixed(1)}\nStd Dev: ${finalStdDevPreference.toFixed(1)}\nSimulations will now run with both 'Modeled' and 'Empirical' (from CSV) preference views.`;
+    setCurrentViewMode('empirical');
+    let alertMessage = `CSV data processed. Parameters updated based on the active workforce derived from the CSV (after ${(baselineAbsenceRate*100).toFixed(1)}% baseline absence rate considered):
+- Number of Employees (avg. from CSV): ${newNumEmployees}
+- Avg. Preferred Days (for active staff): ${(!isNaN(meanActive) && meanActive >= 0 && meanActive <= DAYS_IN_WORK_WEEK ? parseFloat(meanActive.toFixed(1)) : 'N/A')}
+- Std Dev of Preference (for active staff): ${(!isNaN(estimatedStdDevPreferenceActive) && estimatedStdDevPreferenceActive > 0 ? parseFloat(estimatedStdDevPreferenceActive.toFixed(1)) : 'N/A')}
+Simulations will now run with both 'Modeled' and 'Empirical' (from CSV) preference views.`;
     if (currentExcludedWeeks.length > 0) {
-      alertMessage += `\nExcluded weeks: ${currentExcludedWeeks.join('; ')}`;
+      alertMessage += `\n\nExcluded outlier weeks: ${currentExcludedWeeks.join('; ')}`;
     }
-    // If the user was on the insights tab, switch them to simulation results
-    // as new data/parameters are now available.
-    if (activeTab === 'insights') {
-      setActiveTab('simulation');
-    }
+    if (activeTab === 'insights') setActiveTab('simulation');
     alert(alertMessage);
   };
+
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-8 font-sans flex flex-col items-center">
@@ -465,13 +478,15 @@ const App = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           <div className="lg:col-span-1">
             <ParameterInputPanel
-              numEmployees={numEmployees}
+              numEmployees={numEmployees} // This will now reflect CSV update if any
               setNumEmployees={setNumEmployees}
               deskRatio={deskRatio}
               setDeskRatio={setDeskRatio}
-              meanPreference={meanPreference}
+              baselineAbsenceRate={baselineAbsenceRate}
+              setBaselineAbsenceRate={setBaselineAbsenceRate}
+              meanPreference={meanPreference} // This will reflect CSV update if any
               setMeanPreference={setMeanPreference}
-              stdDevPreference={stdDevPreference}
+              stdDevPreference={stdDevPreference} // This will reflect CSV update if any
               setStdDevPreference={setStdDevPreference}
               numSimulations={numSimulations}
               setNumSimulations={setNumSimulations}
@@ -494,14 +509,14 @@ const App = () => {
               showToggle={!!csvEmpiricalPreferences}
               excludedWeeksLog={excludedWeeksLog}
               numSimulations={numSimulations}
-              numEmployees={numEmployees}
+              numEmployees={numEmployees} // Pass total for display, reflects CSV update
               deskRatio={deskRatio}
               getLlmInsights={handleGetLlmInsights}
-              activeTab={activeTab}         // Pass activeTab down
-              setActiveTab={setActiveTab}     // Pass setActiveTab down
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
               isLoadingLlm={isLoadingLlm}
-              _scenarioProgress={_scenarioProgress} // Pass down to mark as "used"
-              overallProgress={overallProgress} // Pass overall progress
+              _scenarioProgress={_scenarioProgress}
+              overallProgress={overallProgress}
               llmInsights={llmInsights}
             />
           </div>
