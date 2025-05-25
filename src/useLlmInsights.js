@@ -8,10 +8,10 @@ const useLlmInsights = () => {
   const [isLoadingLlm, setIsLoadingLlm] = useState(false);
 
   const fetchLlmInsightsData = useCallback(async (simulationData) => {
-  const { numEmployees, deskRatio, meanPreference, stdDevPreference, numSimulations, dayWeights, results } = simulationData; // 'results' here is resultsToDisplay
+  const { numEmployees, deskRatio, meanPreference, stdDevPreference, numSimulations, dayWeights, results } = simulationData;
 
     setIsLoadingLlm(true);
-    setLlmInsights(""); // Clears previous insights
+    setLlmInsights(""); // Clears previous insights before fetching new ones
 
     const prompt = `
       Analyze the following Monte Carlo simulation results for office seat utilization.
@@ -67,7 +67,7 @@ const useLlmInsights = () => {
 
     const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
     const payload = { contents: chatHistory };
-    const apiKey = process.env.REACT_APP_GEMINI_API_KEY || "";
+    const apiKey = process.env.REACT_APP_GEMINI_API_KEY || ""; // Ensure this environment variable is set in your CRA setup
     const apiUrl = `${GEMINI_API_BASE_URL}?key=${apiKey}`;
 
     try {
@@ -92,7 +92,12 @@ const useLlmInsights = () => {
     }
   }, []);
 
-  return { llmInsights, isLoadingLlm, fetchLlmInsightsData };
+  // New function to clear insights
+  const clearLlmInsights = useCallback(() => {
+    setLlmInsights("");
+  }, []);
+
+  return { llmInsights, isLoadingLlm, fetchLlmInsightsData, clearLlmInsights }; // Added clearLlmInsights
 };
 
 export default useLlmInsights;

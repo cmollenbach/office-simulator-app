@@ -1,114 +1,185 @@
-// c:\Users\chris\Documents\office-simulator-app\src\App.js
-import React, { useState, useCallback } from 'react';
-
+// src/App.js
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 
 import {
-  runScenario,
-  generateNormalRandom,
+  generateNormalRandom, // Still needed here to generate preferences before sending to worker
   DAYS_IN_WORK_WEEK,
-  SCENARIO_NAMES
+  SCENARIO_NAMES,
+  SCENARIO_RULES // Import the rules to pass to the worker
 } from './simulationUtils';
 
 import ParameterInputPanel from './ParameterInputPanel';
 import ResultsDisplayPanel from './ResultsDisplayPanel';
 import LlmInsightsPanel from './LlmInsightsPanel';
-// import useD3Chart from './useD3Chart'; // No longer using D3 chart
-import useLlmInsights from './useLlmInsights'; // Import custom hook for LLM
-import 'tippy.js/dist/tippy.css';
-
+import useLlmInsights from './useLlmInsights'; // Corrected: This is where useLlmInsights is imported
+import 'tippy.js/dist/tippy.css'; // Ensure Tippy CSS is imported
 
 // Main App component
 const App = () => {
   // Input state variables
-  const [numEmployees, setNumEmployees] = useState(100); // Default number of employees
-  const [deskRatio, setDeskRatio] = useState(0.4); // Default desk ratio (70% desks compared to employees)
-  const [meanPreference, setMeanPreference] = useState(3); // Default average preferred days in office
-  const [stdDevPreference, setStdDevPreference] = useState(1.5); // Default standard deviation for preferred days
-  const [numSimulations, setNumSimulations] = useState(10000); // Default number of simulation runs (now represents weeks)
-  const [dayWeights, setDayWeights] = useState([1, 1, 1, 1, 1]); // Default weights
-  const [csvEmpiricalPreferences, setCsvEmpiricalPreferences] = useState(null); // To store flat list of preferences from CSV
-  const [excludedWeeksLog, setExcludedWeeksLog] = useState([]); // To log excluded outlier weeks
-
+  const [numEmployees, setNumEmployees] = useState(100);
+  const [deskRatio, setDeskRatio] = useState(0.4);
+  const [meanPreference, setMeanPreference] = useState(3);
+  const [stdDevPreference, setStdDevPreference] = useState(1.5);
+  const [numSimulations, setNumSimulations] = useState(10000);
+  const [dayWeights, setDayWeights] = useState([1, 1, 1, 1, 1]);
+  const [csvEmpiricalPreferences, setCsvEmpiricalPreferences] = useState(null);
+  const [excludedWeeksLog, setExcludedWeeksLog] = useState([]);
 
   // State to store simulation results for both views
   const [empiricalResults, setEmpiricalResults] = useState({});
   const [modeledResults, setModeledResults] = useState({});
-  const [currentViewMode, setCurrentViewMode] = useState('modeled'); // 'modeled' or 'empirical'
+  const [currentViewMode, setCurrentViewMode] = useState('modeled');
   // State to manage loading indicator for simulation
   const [isLoading, setIsLoading] = useState(false);
 
-  // Custom hook for D3 chart
-  // const chartRef = useD3Chart(results); // No longer using D3 chart
-
   // Custom hook for LLM insights
-  const { llmInsights, isLoadingLlm, fetchLlmInsightsData } = useLlmInsights();
-  const resultsToDisplay = currentViewMode === 'empirical' && Object.keys(empiricalResults).length > 0 ? empiricalResults : modeledResults;
+  const { llmInsights, isLoadingLlm, fetchLlmInsightsData, clearLlmInsights } = useLlmInsights(); // Destructure clearLlmInsights
+
+  // Determine which results to display based on the current view mode
+  const resultsToDisplay = currentViewMode === 'empirical' && Object.keys(empiricalResults).length > 0
+    ? empiricalResults
+    : modeledResults;
+
+  // Worker related state and refs
+  const workerRef = useRef(null);
+  const pendingJobsRef = useRef(0);
+  const currentModeledResultsRef = useRef({});
+  const currentEmpiricalResultsRef = useRef({});
+
+  // Effect to initialize and manage the Web Worker
+  useEffect(() => {
+    const newWorker = new Worker(process.env.PUBLIC_URL + '/simulation.worker.js');
+    workerRef.current = newWorker;
+
+    newWorker.onmessage = (event) => {
+      const { workerId, scenarioName, results, error } = event.data;
+
+      if (error) {
+        console.error(`Error from worker for ${scenarioName} (${workerId}):`, error);
+        // Optionally, set a user-facing error state here
+      } else {
+        if (workerId === 'modeled') {
+          currentModeledResultsRef.current[scenarioName] = results;
+        } else if (workerId === 'empirical') {
+          currentEmpiricalResultsRef.current[scenarioName] = results;
+        }
+      }
+
+      pendingJobsRef.current -= 1;
+      if (pendingJobsRef.current === 0) {
+        // All jobs for the current batch (modeled or empirical) are done
+        if (workerId === 'modeled') {
+          setModeledResults({ ...currentModeledResultsRef.current });
+          if (csvEmpiricalPreferences && csvEmpiricalPreferences.length > 0) {
+            // If CSV data exists, kick off empirical runs
+            const availableSeats = Math.round(numEmployees * deskRatio);
+            const empiricalEmployeePreferences = Array.from(
+              { length: numEmployees },
+              () => csvEmpiricalPreferences[Math.floor(Math.random() * csvEmpiricalPreferences.length)]
+            );
+            runSimulationsWithPreferences('empirical', empiricalEmployeePreferences, availableSeats);
+            setCurrentViewMode('empirical'); // Switch view after empirical starts
+            // setIsLoading is still true until empirical runs complete
+          } else {
+            setCurrentViewMode('modeled');
+            setIsLoading(false); // All simulations done
+          }
+        } else if (workerId === 'empirical') {
+          setEmpiricalResults({ ...currentEmpiricalResultsRef.current });
+          setIsLoading(false); // All simulations done
+          setCurrentViewMode('empirical');
+        }
+      }
+    };
+
+    newWorker.onerror = (errorEvent) => {
+      console.error("Critical Worker error:", errorEvent.message, errorEvent);
+      pendingJobsRef.current = 0;
+      setIsLoading(false);
+      alert("A simulation worker error occurred. Please check the console and try again.");
+    };
+
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+      }
+    };
+  // Rerun effect if these change, as they influence how simulations are dispatched
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [csvEmpiricalPreferences, numEmployees, deskRatio]); // Dependencies for re-initializing or re-running logic related to worker
+
+
+  // Helper function to dispatch jobs to the worker
+  const runSimulationsWithPreferences = (workerId, preferencesToUse, availableSeats) => {
+    if (!workerRef.current) {
+      console.error("Worker not initialized in runSimulationsWithPreferences");
+      setIsLoading(false);
+      return;
+    }
+
+    pendingJobsRef.current = SCENARIO_NAMES.length;
+
+    // Initialize/clear the correct results ref for the current batch
+    if (workerId === 'modeled') {
+      currentModeledResultsRef.current = modeledResults["Imported CSV Data"]
+        ? { "Imported CSV Data": modeledResults["Imported CSV Data"] }
+        : {};
+    } else if (workerId === 'empirical') {
+      currentEmpiricalResultsRef.current = empiricalResults["Imported CSV Data"]
+        ? { "Imported CSV Data": empiricalResults["Imported CSV Data"] }
+        : {};
+    }
+
+
+    for (const scenarioName of SCENARIO_NAMES) {
+      workerRef.current.postMessage({
+        workerId,
+        scenarioName,
+        numEmployees,
+        availableSeats,
+        employeePreferences: preferencesToUse,
+        numSimulationsConfig: numSimulations,
+        customDayWeights: dayWeights,
+        scenarioRules: SCENARIO_RULES
+      });
+    }
+  };
 
   // Main function to run all simulations
   const runAllSimulations = useCallback(() => {
+    if (!workerRef.current) {
+      alert("Simulation worker is not ready. Please try again in a moment.");
+      return;
+    }
     setIsLoading(true);
+    clearLlmInsights(); // Use the function from the hook to clear insights
 
     const availableSeats = Math.round(numEmployees * deskRatio);
+
+    // Preserve "Imported CSV Data" if it exists from previous CSV processing
+    // This ensures it's not wiped out when new simulations run.
+    const initialModeled = modeledResults["Imported CSV Data"]
+        ? { "Imported CSV Data": modeledResults["Imported CSV Data"] }
+        : {};
+    const initialEmpirical = empiricalResults["Imported CSV Data"]
+        ? { "Imported CSV Data": empiricalResults["Imported CSV Data"] }
+        : {};
+
+    // Set the state immediately to reflect the preserved CSV data (if any)
+    // and clear out old scenario results.
+    setModeledResults(initialModeled);
+    setEmpiricalResults(initialEmpirical);
 
     // --- Run 1: Modeled Preferences (Normal Distribution) ---
     const modeledEmployeePreferences = Array.from({ length: numEmployees }, () => {
       return Math.min(DAYS_IN_WORK_WEEK, Math.max(0, Math.round(generateNormalRandom(meanPreference, stdDevPreference))));
     });
+    runSimulationsWithPreferences('modeled', modeledEmployeePreferences, availableSeats);
+    setCurrentViewMode('modeled'); // Default to modeled view; will switch if empirical runs
 
-    const newModeledResults = {};
-    for (const scenarioName of SCENARIO_NAMES) {
-      newModeledResults[scenarioName] = runScenario(
-        scenarioName,
-        numEmployees,
-        availableSeats,
-        modeledEmployeePreferences,
-        numSimulations,
-        dayWeights
-        // No empirical distribution passed here, so runScenario uses modeledEmployeePreferences
-      );
-    }
-    // Add "Imported CSV Data" to modeledResults if it exists from a previous import,
-    // so it's available if the user switches views before running a new empirical sim.
-    if (empiricalResults["Imported CSV Data"]) {
-      newModeledResults["Imported CSV Data"] = empiricalResults["Imported CSV Data"];
-    } else if (modeledResults["Imported CSV Data"]) { // Or if it was already in modeledResults
-      newModeledResults["Imported CSV Data"] = modeledResults["Imported CSV Data"];
-    }
-    setModeledResults(newModeledResults);
-
-    // --- Run 2: Empirical Preferences (if CSV data is available) ---
-    if (csvEmpiricalPreferences && csvEmpiricalPreferences.length > 0) {
-      // Generate employee preferences by sampling from the empirical distribution
-      const empiricalEmployeePreferences = Array.from({ length: numEmployees }, () => {
-        return csvEmpiricalPreferences[Math.floor(Math.random() * csvEmpiricalPreferences.length)];
-      });
-
-      const newEmpiricalResults = {};
-      for (const scenarioName of SCENARIO_NAMES) {
-        newEmpiricalResults[scenarioName] = runScenario(
-          scenarioName,
-          numEmployees,
-          availableSeats,
-          empiricalEmployeePreferences, // Use preferences sampled from CSV
-          numSimulations,
-          dayWeights
-        );
-      }
-      // Add "Imported CSV Data" to empiricalResults
-      if (empiricalResults["Imported CSV Data"]) {
-         newEmpiricalResults["Imported CSV Data"] = empiricalResults["Imported CSV Data"];
-      } else if (newModeledResults["Imported CSV Data"]) { // Or if it was just calculated for modeled view
-         newEmpiricalResults["Imported CSV Data"] = newModeledResults["Imported CSV Data"];
-      }
-      setEmpiricalResults(newEmpiricalResults);
-      setCurrentViewMode('empirical'); // Default to empirical view if it was just run
-    } else {
-      setEmpiricalResults({}); // Clear empirical results if no CSV data
-      setCurrentViewMode('modeled'); // Default to modeled view
-    }
-
-    setIsLoading(false);
-    }, [numEmployees, deskRatio, meanPreference, stdDevPreference, numSimulations, dayWeights, csvEmpiricalPreferences, setIsLoading, empiricalResults, modeledResults]);
+    // Empirical runs are chained via the worker's onmessage handler
+  }, [numEmployees, deskRatio, meanPreference, stdDevPreference, numSimulations, dayWeights, setIsLoading, clearLlmInsights, modeledResults, empiricalResults]); // Added clearLlmInsights to dependencies
 
 
   const processImportedData = (csvData) => {
@@ -117,7 +188,6 @@ const App = () => {
       return;
     }
 
-    // Group data by week
     const weeklyData = {};
     csvData.forEach(row => {
       if (row.length < 3 || typeof row[0] !== 'string' || typeof row[1] !== 'number' || typeof row[2] !== 'number') {
@@ -145,10 +215,8 @@ const App = () => {
     const currentExcludedWeeks = [];
     let lowerBoundTotalAttendance = -Infinity;
     let upperBoundZeroAttendance = Infinity;
-
     const minWeeksForOutlierDetection = 3;
 
-    // --- Outlier Detection for Low Total Attendance ---
     const weeklyTotals = Object.values(weeklyData).map(week => week.totalPeopleThisWeek);
     if (weeklyTotals.length >= minWeeksForOutlierDetection) {
       const sortedTotals = [...weeklyTotals].sort((a, b) => a - b);
@@ -160,7 +228,6 @@ const App = () => {
       console.warn("Not enough weekly data to perform robust outlier detection for total attendance. Using all data for this metric.");
     }
 
-    // --- Outlier Detection for High Zero Attendance ---
     const weeklyZeroAttendanceCounts = Object.values(weeklyData).map(week => week.attendanceDistribution[0]);
     if (weeklyZeroAttendanceCounts.length >= minWeeksForOutlierDetection) {
         const sortedZeroCounts = [...weeklyZeroAttendanceCounts].sort((a, b) => a - b);
@@ -172,10 +239,9 @@ const App = () => {
         console.warn("Not enough weekly data to perform robust outlier detection for zero attendance. Using all data for this metric.");
     }
 
-
     const nonOutlierWeeksData = [];
     let totalPeopleSum = 0;
-    let allIndividualPreferences = [];
+    let allIndividualPreferencesFromCsv = [];
     const csvAttendanceDistributionSums = Array(6).fill(0);
     let csvTotalEmployeeWeeks = 0;
 
@@ -203,7 +269,7 @@ const App = () => {
 
         for (let days = 0; days <= 5; days++) {
           for (let i = 0; i < week.attendanceDistribution[days]; i++) {
-            allIndividualPreferences.push(days);
+            allIndividualPreferencesFromCsv.push(days);
           }
           csvAttendanceDistributionSums[days] += week.attendanceDistribution[days];
         }
@@ -212,14 +278,14 @@ const App = () => {
 
     if (nonOutlierWeeksData.length === 0) {
       alert("No valid (non-outlier) weekly data found after processing.");
-      setCsvEmpiricalPreferences(null); // Clear any previous empirical preferences
-      setExcludedWeeksLog([]); // Clear excluded weeks log
-       // Ensure "Imported CSV Data" entry reflects no data if all weeks are outliers
+      setCsvEmpiricalPreferences(null);
+      setExcludedWeeksLog([]);
       const noCsvDataEntry = {
         "Imported CSV Data": {
           overallAverage: null,
           dailyAverages: null,
-          attendanceDistribution: Array(6).fill(0) // Show all zeros
+          averagePreferenceDeviation: null,
+          attendanceDistribution: Array(6).fill(0)
         }
       };
       setModeledResults(prev => ({ ...prev, ...noCsvDataEntry }));
@@ -227,14 +293,13 @@ const App = () => {
       return;
     }
 
-    // --- Estimate Parameters from Non-Outlier Data ---
     const estimatedNumEmployees = Math.round(totalPeopleSum / nonOutlierWeeksData.length);
-    const estimatedMeanPreference = allIndividualPreferences.length > 0 ? allIndividualPreferences.reduce((sum, val) => sum + val, 0) / allIndividualPreferences.length : 0;
+    const estimatedMeanPreference = allIndividualPreferencesFromCsv.length > 0 ? allIndividualPreferencesFromCsv.reduce((sum, val) => sum + val, 0) / allIndividualPreferencesFromCsv.length : 0;
     
     let variance = 0;
-    if (allIndividualPreferences.length > 0) {
-      const mean = estimatedMeanPreference; // Use the calculated mean
-      variance = allIndividualPreferences.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / allIndividualPreferences.length;
+    if (allIndividualPreferencesFromCsv.length > 0) {
+      const mean = estimatedMeanPreference;
+      variance = allIndividualPreferencesFromCsv.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / allIndividualPreferencesFromCsv.length;
     }
     const estimatedStdDevPreference = Math.sqrt(variance);
 
@@ -244,28 +309,46 @@ const App = () => {
     const finalMeanPreference = !isNaN(estimatedMeanPreference) && estimatedMeanPreference >= 0 && estimatedMeanPreference <= 5 ? parseFloat(estimatedMeanPreference.toFixed(1)) : 3;
     const finalStdDevPreference = !isNaN(estimatedStdDevPreference) && estimatedStdDevPreference > 0 ? parseFloat(estimatedStdDevPreference.toFixed(1)) : 0.8;
 
-
     setNumEmployees(finalNumEmployees);
     setMeanPreference(finalMeanPreference);
     setStdDevPreference(finalStdDevPreference);
-    setCsvEmpiricalPreferences(allIndividualPreferences.length > 0 ? allIndividualPreferences : null);
+    setCsvEmpiricalPreferences(allIndividualPreferencesFromCsv.length > 0 ? allIndividualPreferencesFromCsv : null);
     setExcludedWeeksLog(currentExcludedWeeks);
 
     const csvResultEntry = {
       "Imported CSV Data": {
         overallAverage: null,
         dailyAverages: null,
+        averagePreferenceDeviation: null,
         attendanceDistribution: csvAverageAttendanceDistribution
       }
     };
+    
     setModeledResults(prev => ({ ...prev, ...csvResultEntry }));
     setEmpiricalResults(prev => ({ ...prev, ...csvResultEntry }));
+    // Also update the refs if they exist, to ensure consistency if a simulation is run immediately after
+    if (currentModeledResultsRef.current) {
+        currentModeledResultsRef.current = { ...currentModeledResultsRef.current, ...csvResultEntry };
+    }
+    if (currentEmpiricalResultsRef.current) {
+        currentEmpiricalResultsRef.current = { ...currentEmpiricalResultsRef.current, ...csvResultEntry };
+    }
+    
     setCurrentViewMode('empirical');
 
-    alert(`Parameters estimated from CSV and applied.\nEmployees: ${finalNumEmployees}\nAvg. Preferred Days: ${finalMeanPreference.toFixed(1)}\nStd Dev: ${finalStdDevPreference.toFixed(1)}\nSimulations will now run with both 'Modeled' and 'Empirical' (from CSV) preference views.${currentExcludedWeeks.length > 0 ? `\nExcluded weeks: ${currentExcludedWeeks.join(', ')}` : ''}`);
+    let alertMessage = `Parameters estimated from CSV and applied.\nEmployees: ${finalNumEmployees}\nAvg. Preferred Days: ${finalMeanPreference.toFixed(1)}\nStd Dev: ${finalStdDevPreference.toFixed(1)}\nSimulations will now run with both 'Modeled' and 'Empirical' (from CSV) preference views.`;
+    if (currentExcludedWeeks.length > 0) {
+      alertMessage += `\nExcluded weeks: ${currentExcludedWeeks.join('; ')}`;
+    }
+    alert(alertMessage);
   };
 
+
   const handleGetLlmInsights = useCallback(() => {
+    const currentResults = currentViewMode === 'empirical' && Object.keys(empiricalResults).length > 0
+      ? empiricalResults
+      : modeledResults;
+
     fetchLlmInsightsData({
       numEmployees,
       deskRatio,
@@ -273,17 +356,14 @@ const App = () => {
       stdDevPreference,
       dayWeights,
       numSimulations,
-       results: resultsToDisplay
+      results: currentResults // Pass the correctly determined resultsToDisplay
     });
-
-  }, [fetchLlmInsightsData, numEmployees, deskRatio, meanPreference, stdDevPreference, dayWeights, numSimulations, resultsToDisplay]);
-
+  }, [fetchLlmInsightsData, numEmployees, deskRatio, meanPreference, stdDevPreference, dayWeights, numSimulations, currentViewMode, modeledResults, empiricalResults]);
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-8 font-sans flex flex-col items-center">
       <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-6xl">
         <h1 className="text-4xl font-bold text-indigo-700 mb-10 pb-6 text-center border-b-2 border-indigo-100">Office Seat Utilization Simulator</h1>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           <div className="lg:col-span-1">
             <ParameterInputPanel
@@ -304,7 +384,6 @@ const App = () => {
               isLoading={isLoading}
             />
           </div>
-
           <div className="lg:col-span-2">
             <ResultsDisplayPanel
               results={resultsToDisplay}
@@ -318,7 +397,6 @@ const App = () => {
               deskRatio={deskRatio}
             />
           </div>
-
           <div className="lg:col-span-3">
             <LlmInsightsPanel
               results={resultsToDisplay}
