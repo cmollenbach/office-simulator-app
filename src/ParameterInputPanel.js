@@ -115,10 +115,11 @@ const ParameterInputPanel = ({
             type="number"
             id="simulations"
             value={numSimulations}
-            onChange={(e) => setNumSimulations(Math.max(100, parseInt(e.target.value, 10) || 100))}
+            onChange={(e) => setNumSimulations(Math.min(10000, Math.max(100, parseInt(e.target.value, 10) || 100)))}
             className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out"
             min="100"
             step="100"
+            max="10000"
           />
         </div>
         <div>

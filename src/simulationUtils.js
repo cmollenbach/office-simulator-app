@@ -3,9 +3,10 @@
 export const SCENARIO_NAMES = [
   "1) No rules",
   "2) Min 2 days/week, no max",
-  "3) Min 3 days/week, no max",
-  "4) Min 2 days/week, max 4 days/week",
-  "5) Exactly 3 days/week",
+  "3) Min 2 days/week, max 4 days/week", // Was 4
+  "4) Min 3 days/week, no max",          // Was 3
+  "5) Min 3 days/week, max 4 days/week", // Was 6
+  "6) Exactly 3 days/week",            // Was 5
 ];
 export const DAYS_IN_WORK_WEEK = 5;
 
@@ -32,11 +33,13 @@ export function getTargetDaysPerWeek(scenarioName, preferredDays) {
       return roundedPreferredDays;
     case "2) Min 2 days/week, no max":
       return Math.max(2, roundedPreferredDays);
-    case "3) Min 3 days/week, no max":
-      return Math.max(3, roundedPreferredDays);
-    case "4) Min 2 days/week, max 4 days/week":
+    case "3) Min 2 days/week, max 4 days/week": // Was 4
       return Math.min(4, Math.max(2, roundedPreferredDays));
-    case "5) Exactly 3 days/week":
+    case "4) Min 3 days/week, no max":          // Was 3
+      return Math.max(3, roundedPreferredDays);
+    case "5) Min 3 days/week, max 4 days/week": // Was 6
+      return Math.min(4, Math.max(3, roundedPreferredDays));
+    case "6) Exactly 3 days/week":            // Was 5
       return 3;
     default:
       console.warn("Unknown scenario in getTargetDaysPerWeek:", scenarioName, "- defaulting to roundedPreferredDays");
@@ -54,16 +57,14 @@ export function runScenario(scenarioName, numEmployees, availableSeats, employee
       overallAverage: 0,
       dailyAverages: Array(DAYS_IN_WORK_WEEK).fill(0),
       attendanceDistribution: Array(DAYS_IN_WORK_WEEK + 1).fill(0),
-      averagePreferenceDeviation: 0, // ADDED: Default for new metric
+      averagePreferenceDeviation: 0,
     };
   }
 
   // --- Calculate Average Preference Deviation ---
   let totalPreferenceDeviation = 0;
   for (let i = 0; i < numEmployees; i++) {
-    // employeePreferences[i] is the raw preference (already clamped 0-5 during generation)
     const individualPreference = employeePreferences[i];
-    // Determine the target days under the current policy scenario
     const policyTargetDays = getTargetDaysPerWeek(scenarioName, individualPreference);
     totalPreferenceDeviation += Math.abs(individualPreference - policyTargetDays);
   }
@@ -154,7 +155,7 @@ export function runScenario(scenarioName, numEmployees, availableSeats, employee
       overallAverage: 0,
       dailyAverages: Array(DAYS_IN_WORK_WEEK).fill(0),
       attendanceDistribution: Array(DAYS_IN_WORK_WEEK + 1).fill(0),
-      averagePreferenceDeviation: 0, // ADDED: Default for new metric
+      averagePreferenceDeviation: 0,
     };
   }
 
@@ -170,6 +171,6 @@ export function runScenario(scenarioName, numEmployees, availableSeats, employee
     overallAverage: parseFloat(overallAverageShortage.toFixed(2)),
     dailyAverages: averageDailyShortages.map(avg => parseFloat(avg.toFixed(2))),
     attendanceDistribution: averageAttendanceDistribution,
-    averagePreferenceDeviation: parseFloat(averagePreferenceDeviation.toFixed(2)) // ADDED: New metric
+    averagePreferenceDeviation: parseFloat(averagePreferenceDeviation.toFixed(2))
   };
 }
