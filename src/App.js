@@ -1,17 +1,18 @@
 // src/App.js
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx'; // Import xlsx library
 
 import {
   generateNormalRandom,
   DAYS_IN_WORK_WEEK,
   SCENARIO_NAMES,
   SCENARIO_RULES
-} from './simulationUtils'; // cmollenbach/office-simulator-app/office-simulator-app-3dcf7f354f7e30b9980f5170ed854316c41c8c9c/src/simulationUtils.js
+} from './simulationUtils';
 
-import ParameterInputPanel from './ParameterInputPanel'; // cmollenbach/office-simulator-app/office-simulator-app-3dcf7f354f7e30b9980f5170ed854316c41c8c9c/src/ParameterInputPanel.js
-import ResultsDisplayPanel from './ResultsDisplayPanel'; // cmollenbach/office-simulator-app/office-simulator-app-3dcf7f354f7e30b9980f5170ed854316c41c8c9c/src/ResultsDisplayPanel.js
-import useLlmInsights from './useLlmInsights'; // cmollenbach/office-simulator-app/office-simulator-app-3dcf7f354f7e30b9980f5170ed854316c41c8c9c/src/useLlmInsights.js
-import 'tippy.js/dist/tippy.css'; // Ensure Tippy CSS is globally available
+import ParameterInputPanel from './ParameterInputPanel';
+import ResultsDisplayPanel from './ResultsDisplayPanel';
+import useLlmInsights from './useLlmInsights';
+import 'tippy.js/dist/tippy.css';
 
 const App = () => {
   const [numEmployees, setNumEmployees] = useState(100);
@@ -26,8 +27,8 @@ const App = () => {
 
   const [empiricalResults, setEmpiricalResults] = useState({});
   const [modeledResults, setModeledResults] = useState({});
-  const [currentViewMode, setCurrentViewMode] = useState('modeled'); // For "Simulation Results" tab
-  const [activeTab, setActiveTab] = useState('simulation'); // Default active tab
+  const [currentViewMode, setCurrentViewMode] = useState('modeled');
+  const [activeTab, setActiveTab] = useState('simulation');
   const [isLoading, setIsLoading] = useState(false);
   const [_scenarioProgress, setScenarioProgress] = useState({});
   const [overallProgress, setOverallProgress] = useState(0);
@@ -38,8 +39,10 @@ const App = () => {
   const currentEmpiricalResultsRef = useRef({});
   const insightsRefreshPendingRef = useRef(false);
 
-  const runSimulationsWithPreferences = useCallback((workerId, preferencesToUse, numActiveSimEmployees, availableSeats) => {
+  const { llmInsights, isLoadingLlm, fetchLlmInsightsData, clearLlmInsights } = useLlmInsights();
 
+  // --- START WORKER COMMUNICATION LOGIC ---
+  const runSimulationsWithPreferences = useCallback((workerId, preferencesToUse, numActiveSimEmployees, availableSeats) => {
     if (!workerRef.current) {
       console.warn("Worker not initialized in runSimulationsWithPreferences for workerId:", workerId);
       setIsLoading(false);
@@ -60,8 +63,8 @@ const App = () => {
       workerRef.current.postMessage({
         workerId,
         scenarioName,
-        numEmployees: numActiveSimEmployees, 
-        numTotalEmployees: numEmployees, 
+        numEmployees: numActiveSimEmployees,
+        numTotalEmployees: numEmployees,
         availableSeats,
         employeePreferences: preferencesToUse,
         numSimulationsConfig: numSimulations,
@@ -86,10 +89,8 @@ const App = () => {
           if (totalScenariosInBatch > 0) {
             const currentProgressSum = Object.values(updated).reduce((sum, p) => sum + p, 0);
             const currentBatchAverageProgress = currentProgressSum / totalScenariosInBatch;
-
             const willRunEmpirical = csvEmpiricalPreferences && csvEmpiricalPreferences.length > 0;
             const numTotalBatches = willRunEmpirical ? 2 : 1;
-
             let newOverallProgress = 0;
             if (workerId === 'modeled') {
               newOverallProgress = currentBatchAverageProgress / numTotalBatches;
@@ -107,10 +108,8 @@ const App = () => {
            if (totalScenariosInBatch > 0) {
             const currentProgressSum = Object.values(updated).reduce((sum, p) => sum + p, 0);
             const currentBatchAverageProgress = currentProgressSum / totalScenariosInBatch;
-
             const willRunEmpirical = csvEmpiricalPreferences && csvEmpiricalPreferences.length > 0;
             const numTotalBatches = willRunEmpirical ? 2 : 1;
-
             let newOverallProgress = 0;
             if (workerId === 'modeled') {
               newOverallProgress = currentBatchAverageProgress / numTotalBatches;
@@ -139,25 +138,22 @@ const App = () => {
                 { length: numActiveEmployeesForSim },
                 () => csvEmpiricalPreferences[Math.floor(Math.random() * csvEmpiricalPreferences.length)]
               );
-              
               currentEmpiricalResultsRef.current = currentEmpiricalResultsRef.current["Imported CSV Data"]
                 ? { "Imported CSV Data": currentEmpiricalResultsRef.current["Imported CSV Data"] }
                 : {};
-              
               const initialEmpiricalProgress = SCENARIO_NAMES.reduce((acc, name) => ({ ...acc, [name]: 0 }), {});
               setScenarioProgress(initialEmpiricalProgress);
-
               pendingJobsRef.current = SCENARIO_NAMES.length;
               runSimulationsWithPreferences('empirical', empiricalEmployeePreferencesForWorker, numActiveEmployeesForSim, availableSeats);
-              setCurrentViewMode('empirical'); // For Simulation Results tab
+              setCurrentViewMode('empirical');
             } else {
-              setCurrentViewMode('modeled'); // For Simulation Results tab
+              setCurrentViewMode('modeled');
               setIsLoading(false);
             }
           } else if (workerId === 'empirical') {
             setEmpiricalResults({ ...currentEmpiricalResultsRef.current });
             setIsLoading(false);
-            setCurrentViewMode('empirical'); // For Simulation Results tab
+            setCurrentViewMode('empirical');
           }
         }
       } else if (type === 'error') {
@@ -181,9 +177,9 @@ const App = () => {
       }
     };
   }, [csvEmpiricalPreferences, numEmployees, deskRatio, runSimulationsWithPreferences, baselineAbsenceRate]);
+  // --- END WORKER COMMUNICATION LOGIC ---
 
-  const { llmInsights, isLoadingLlm, fetchLlmInsightsData, clearLlmInsights } = useLlmInsights();
-
+  // --- START LLM INSIGHTS LOGIC ---
   const handleGetLlmInsights = useCallback(() => {
     fetchLlmInsightsData({
       numEmployees,
@@ -203,7 +199,6 @@ const App = () => {
     if (!isLoading && activeTab === 'insights' && insightsRefreshPendingRef.current) {
       const hasModeledData = modeledResults && Object.keys(modeledResults).filter(key => key !== "Imported CSV Data").length > 0;
       const hasEmpiricalData = empiricalResults && Object.keys(empiricalResults).filter(key => key !== "Imported CSV Data").length > 0;
-
       if (hasModeledData || hasEmpiricalData) {
         handleGetLlmInsights();
       }
@@ -214,11 +209,13 @@ const App = () => {
   useEffect(() => {
     if (activeTab !== 'insights') insightsRefreshPendingRef.current = false;
   }, [activeTab]);
+  // --- END LLM INSIGHTS LOGIC ---
 
   const resultsToDisplayForSimulationTab = currentViewMode === 'empirical' && Object.keys(empiricalResults).length > 0
     ? empiricalResults
     : modeledResults;
 
+  // --- START SIMULATION RUN LOGIC ---
   const runAllSimulations = useCallback(() => {
     if (!workerRef.current) {
       alert("Simulation worker is not ready. Please try again in a moment.");
@@ -251,8 +248,7 @@ const App = () => {
     });
     
     runSimulationsWithPreferences('modeled', modeledEmployeePreferences, numActiveEmployeesForSim, availableSeats);
-    setCurrentViewMode('modeled'); // Default to modeled view for "Simulation Results" tab
-    // setActiveTab('simulation'); // Optionally switch to simulation tab on new run
+    setCurrentViewMode('modeled');
   }, [
       numEmployees,
       deskRatio,
@@ -262,8 +258,11 @@ const App = () => {
       runSimulationsWithPreferences,
       clearLlmInsights
     ]);
+  // --- END SIMULATION RUN LOGIC ---
 
+  // --- START CSV IMPORT LOGIC ---
   const processImportedData = (csvData) => {
+    // ... (existing processImportedData logic - no changes needed here for export)
     if (!csvData || csvData.length === 0) {
       alert("No data found in CSV or CSV is empty.");
       return;
@@ -452,7 +451,150 @@ Simulations will now run with both 'Modeled' and 'Empirical' (from CSV) preferen
       setActiveTab('simulation');
     }
   };
+  // --- END CSV IMPORT LOGIC ---
 
+  // --- START EXCEL EXPORT LOGIC ---
+  const handleExportToExcel = useCallback(() => {
+    const wb = XLSX.utils.book_new();
+    const weekDayNames = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    const attendanceDaysHeader = ["0 Days", "1 Day", "2 Days", "3 Days", "4 Days", "5 Days"];
+
+    // Sheet 1: Parameters
+    const paramsData = [
+      ["Parameter", "Value"],
+      ["Total Number of Employees", numEmployees],
+      ["Desk Ratio (Seats / Emp.)", deskRatio],
+      ["Baseline Absence Rate (%)", (baselineAbsenceRate * 100).toFixed(1)],
+      ["Avg. Preferred Days (modeled, active staff)", meanPreference.toFixed(1)],
+      ["Std Dev of Pref. (modeled, active staff)", stdDevPreference.toFixed(1)],
+      ["Number of Simulated Weeks", numSimulations],
+      ["Day Weights (Mon-Fri)", dayWeights.join(', ')],
+      ["CSV Data Imported", csvEmpiricalPreferences ? "Yes" : "No"],
+    ];
+    if (excludedWeeksLog.length > 0) {
+      paramsData.push(["Excluded CSV Weeks", excludedWeeksLog.join('; ')]);
+    }
+    const wsParams = XLSX.utils.aoa_to_sheet(paramsData);
+    XLSX.utils.book_append_sheet(wb, wsParams, "Parameters");
+
+    // Helper function to create results sheet
+    const createResultsSheet = (resultsData, sheetName) => {
+      if (!resultsData || Object.keys(resultsData).length === 0) return;
+    
+      const aoa = []; // Array of arrays for XLSX
+    
+      // Table 1: Daily Seat Shortage & Metrics
+      aoa.push(["Weekly Simulation: Daily Seat Shortage & Metrics"]); // Title for the first table
+      const shortageMetricsHeaders = [
+        "Scenario", "Avg Shortage", "Pref Deviation", 
+        ...weekDayNames.map(day => `Avg Shortage ${day}`)
+      ];
+      aoa.push(shortageMetricsHeaders);
+    
+      Object.entries(resultsData).forEach(([scenario, resultObj]) => {
+        // Filter out "Imported CSV Data" for this specific table as it doesn't have shortage/deviation metrics
+        if (scenario !== "Imported CSV Data" && resultObj && (Array.isArray(resultObj.dailyAverages) || resultObj.dailyAverages === null)) {
+          const row = [
+            scenario,
+            resultObj.overallAverage !== null && typeof resultObj.overallAverage === 'number' ? Math.round(resultObj.overallAverage) : 'N/A',
+            typeof resultObj.averagePreferenceDeviation === 'number' ? resultObj.averagePreferenceDeviation.toFixed(2) : 'N/A',
+          ];
+          weekDayNames.forEach((_, index) => {
+            row.push(
+              resultObj.dailyAverages && typeof resultObj.dailyAverages[index] === 'number'
+                ? Math.round(resultObj.dailyAverages[index])
+                : (resultObj.dailyAverages === null ? 'N/A' : 'Err') // Simplified N/A or Err
+            );
+          });
+          aoa.push(row);
+        }
+      });
+    
+      aoa.push([]); // Add an empty row for spacing between tables
+    
+      // Table 2: Attendance Distribution Comparison
+      aoa.push(["Attendance Distribution Comparison (% of Employees)"]); // Title for the second table
+      const attendanceDistHeaders = [
+        "Source / Scenario", 
+        ...attendanceDaysHeader.map(day => `${day} (%)`)
+      ];
+      aoa.push(attendanceDistHeaders);
+    
+      Object.entries(resultsData).forEach(([scenario, resultObj]) => {
+        if (resultObj && Array.isArray(resultObj.attendanceDistribution) && resultObj.attendanceDistribution.length === 6) {
+          const row = [scenario];
+          resultObj.attendanceDistribution.forEach(percentage => {
+            row.push(typeof percentage === 'number' ? Math.round(percentage) : 'N/A');
+          });
+          aoa.push(row);
+        } else if (resultObj && scenario === "Imported CSV Data" && (!resultObj.attendanceDistribution || resultObj.attendanceDistribution.length !== 6)) {
+          // Handle case where "Imported CSV Data" might exist but not have a valid distribution yet
+          const row = [scenario, ...Array(6).fill('N/A')];
+          aoa.push(row);
+        }
+      });
+    
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+      // Optional: Add merges for the table titles if you want them to span columns
+      // This requires knowing the number of columns in each table.
+      // For simplicity, this example doesn't add merges, titles will be in the first cell.
+      // If you want to merge, you'd add to ws['!merges'] array.
+      // e.g., ws['!merges'] = [{ s: {r:0, c:0}, e: {r:0, c:shortageMetricsHeaders.length-1} }];
+
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    };
+
+    // Sheet 2: Modeled Results
+    createResultsSheet(modeledResults, "Modeled Results");
+
+    // Sheet 3: Empirical Results
+    if (csvEmpiricalPreferences && Object.keys(empiricalResults).length > 0) {
+      createResultsSheet(empiricalResults, "Empirical Results");
+    }
+    
+    // Sheet 4: LLM Insights
+    if (llmInsights) {
+      // Create a sheet with the LLM insights.
+      // For simplicity, putting it in one cell. Could be split by lines if needed.
+      const insightsData = [
+        ["LLM Policy Insights"],
+        [llmInsights]
+      ];
+      const wsInsights = XLSX.utils.aoa_to_sheet(insightsData);
+      // Optional: Set column width for better readability
+      wsInsights['!cols'] = [{ wch: 100 }]; // Width of first column
+
+      // Apply text wrapping to the cell A2 (where llmInsights content is placed)
+      const insightsCellAddress = 'A2';
+      if (wsInsights[insightsCellAddress] && typeof wsInsights[insightsCellAddress].v === 'string' && wsInsights[insightsCellAddress].v.length > 0) { // Check if cell exists and has content
+        const cell = wsInsights[insightsCellAddress];
+        // Ensure the style object 's' exists
+        if (!cell.s) {
+          cell.s = {};
+        }
+        // Ensure the alignment object exists within 's'
+        if (!cell.s.alignment) {
+          cell.s.alignment = {};
+        }
+        // Set wrapText to true
+        cell.s.alignment.wrapText = true;
+        // Align text to the top of the cell, useful for multi-line content
+        cell.s.alignment.vertical = "top";
+      }
+      XLSX.utils.book_append_sheet(wb, wsInsights, "LLM Insights");
+    }
+
+
+    // Generate and download the Excel file
+    XLSX.writeFile(wb, "Office_Simulation_Report.xlsx");
+
+  }, [
+      numEmployees, deskRatio, meanPreference, stdDevPreference, numSimulations,
+      dayWeights, baselineAbsenceRate, csvEmpiricalPreferences, excludedWeeksLog,
+      modeledResults, empiricalResults, llmInsights
+    ]);
+  // --- END EXCEL EXPORT LOGIC ---
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-8 font-sans flex flex-col items-center">
@@ -482,25 +624,26 @@ Simulations will now run with both 'Modeled' and 'Empirical' (from CSV) preferen
           </div>
           <div className="lg:col-span-2">
             <ResultsDisplayPanel
-              results={resultsToDisplayForSimulationTab} // This is specific to the "Simulation Results" tab
-              modeledResults={modeledResults}      // Pass separately for other tabs like "Graphs" or "Insights"
-              empiricalResults={empiricalResults}  // Pass separately for other tabs
-              csvEmpiricalPreferences={csvEmpiricalPreferences} // To determine which data source to prefer for charts
+              results={resultsToDisplayForSimulationTab}
+              modeledResults={modeledResults}
+              empiricalResults={empiricalResults}
+              csvEmpiricalPreferences={csvEmpiricalPreferences}
               isLoading={isLoading}
               currentViewMode={currentViewMode}
               setCurrentViewMode={setCurrentViewMode}
-              showToggle={!!csvEmpiricalPreferences} // For the "Simulation Results" tab
+              showToggle={!!csvEmpiricalPreferences}
               excludedWeeksLog={excludedWeeksLog}
-              _numSimulations={numSimulations} // Renamed with underscore as it's passed for info/LLM but not directly rendered
-              _numEmployees={numEmployees}   // Renamed with underscore
-              _deskRatio={deskRatio}      // Renamed with underscore
+              _numSimulations={numSimulations}
+              _numEmployees={numEmployees}
+              _deskRatio={deskRatio}
               getLlmInsights={handleGetLlmInsights}
               activeTab={activeTab}
               setActiveTab={setActiveTab}
               isLoadingLlm={isLoadingLlm}
-              _scenarioProgress={_scenarioProgress} // Renamed with underscore
+              _scenarioProgress={_scenarioProgress}
               overallProgress={overallProgress}
               llmInsights={llmInsights}
+              onExportToExcel={handleExportToExcel} // Pass the export function
             />
           </div>
         </div>

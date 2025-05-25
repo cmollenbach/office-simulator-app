@@ -3,8 +3,8 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import Tippy from '@tippyjs/react';
 import LlmInsightsPanel from './LlmInsightsPanel';
-import PreferenceVsShortageScatterPlot from './PreferenceVsShortageScatterPlot'; // New import
-import AttendanceDistributionChart from './AttendanceDistributionChart'; // New import
+import PreferenceVsShortageScatterPlot from './PreferenceVsShortageScatterPlot';
+import AttendanceDistributionChart from './AttendanceDistributionChart';
 
 const ResultsDisplayPanel = ({
   results,
@@ -26,12 +26,12 @@ const ResultsDisplayPanel = ({
   _scenarioProgress,
   overallProgress,
   setActiveTab,
+  onExportToExcel, // New prop for export function
 }) => {
   const hasSimulationResults = (results && Object.keys(results).length > 0) || (modeledResults && Object.keys(modeledResults).length > 0) || (empiricalResults && Object.keys(empiricalResults).length > 0);
   const weekDayNames = ["Mon", "Tue", "Wed", "Thu", "Fri"];
   const attendanceDays = [0, 1, 2, 3, 4, 5];
 
-  // Determine which results to display based on availability and view mode for charts
   const chartDataSource = (csvEmpiricalPreferences && empiricalResults && Object.keys(empiricalResults).length > 0)
     ? empiricalResults
     : modeledResults;
@@ -39,7 +39,6 @@ const ResultsDisplayPanel = ({
   const chartDataViewName = (csvEmpiricalPreferences && empiricalResults && Object.keys(empiricalResults).length > 0)
     ? "Empirical Data"
     : "Modeled Data";
-
 
   const renderSimulationResults = () => (
     <>
@@ -53,7 +52,7 @@ const ResultsDisplayPanel = ({
           </button>
           <button
             onClick={() => setCurrentViewMode('empirical')}
-            className={`flex-1 py-2 px-4 text-center text-sm font-medium transition-colors focus:outline-none ${currentViewMode === 'empirical' ? 'border-b-2 border-teal-600 text-teal-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex-1 py-2 px-4 text-center text-sm font-medium transition-colors focus:outline-none ${currentViewMode === 'empirical' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
           >
             Empirical View (CSV Based)
           </button>
@@ -159,7 +158,7 @@ const ResultsDisplayPanel = ({
           <p className="text-xl mb-4">Run a simulation to view graphs.</p>
         </div>
       )}
-      {isLoading && ( // Show progress bar whenever loading
+      {isLoading && (
          <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-600 p-4">
             <svg className="animate-spin h-10 w-10 text-indigo-500 mx-auto mb-4" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -181,30 +180,47 @@ const ResultsDisplayPanel = ({
     </div>
   );
 
-
   return (
     <div className="bg-gray-50 p-6 rounded-xl shadow-lg border border-gray-300 flex flex-col">
-      {/* Main Tab Navigation */}
-      <div className="mb-4 flex border-b border-gray-300">
-        <button
-          onClick={() => setActiveTab('simulation')}
-          className={`flex-1 py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'simulation' ? 'border-b-2 border-indigo-700 text-indigo-700' : 'text-gray-600 hover:text-indigo-600'}`}
-        >
-          Simulation Results
-        </button>
-        <button
-          onClick={() => setActiveTab('graphs')} 
-          className={`flex-1 py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'graphs' ? 'border-b-2 border-green-600 text-green-600' : 'text-gray-600 hover:text-green-600'}`}
-        >
-          📊 Graphs
-        </button>
-        <button
-          onClick={() => setActiveTab('insights')}
-          className={`flex-1 py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'insights' ? 'border-b-2 border-sky-600 text-sky-600' : 'text-gray-600 hover:text-sky-600'}`}
-        >
-          ✨ Policy Insights
-        </button>
+      <div className="flex justify-between items-center mb-4 border-b border-gray-300">
+        {/* Main Tab Navigation */}
+        <div className="flex">
+            <button
+            onClick={() => setActiveTab('simulation')}
+            className={`py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'simulation' ? 'border-b-2 border-indigo-700 text-indigo-700' : 'text-gray-600 hover:text-indigo-600'}`}
+            >
+            Simulation Results
+            </button>
+            <button
+            onClick={() => setActiveTab('graphs')} 
+            className={`py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'graphs' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:text-blue-600'}`}
+            >
+            📊 Graphs
+            </button>
+            <button
+            onClick={() => setActiveTab('insights')}
+            className={`py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'insights' ? 'border-b-2 border-sky-600 text-sky-600' : 'text-gray-600 hover:text-sky-600'}`}
+            >
+            ✨ Policy Insights
+            </button>
+        </div>
+        <div> {/* Container for the export button to ensure it's on the right */}
+          {/* Export Button - visible only if there are results and not loading */}
+          {!isLoading && hasSimulationResults && (
+            <button
+              onClick={onExportToExcel}
+              className="ml-4 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-3 rounded-md text-sm shadow transition-colors duration-150 ease-in-out"
+              title="Export parameters and results to Excel"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline-block mr-1.5 -mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+              Export to Excel
+            </button>
+          )}
+        </div>
       </div>
+
 
       {/* Tab Content */}
       {activeTab === 'simulation' && (
@@ -235,7 +251,7 @@ const ResultsDisplayPanel = ({
         </>
       )}
       
-      {activeTab === 'graphs' && renderGraphsTab()} {/* New Tab Content */}
+      {activeTab === 'graphs' && renderGraphsTab()}
 
       {activeTab === 'insights' && (
         <LlmInsightsPanel
@@ -272,6 +288,7 @@ ResultsDisplayPanel.propTypes = {
   _scenarioProgress: PropTypes.object.isRequired,
   overallProgress: PropTypes.number.isRequired,
   setActiveTab: PropTypes.func.isRequired,
+  onExportToExcel: PropTypes.func.isRequired, // New prop type
 };
 
 ResultsDisplayPanel.defaultProps = {

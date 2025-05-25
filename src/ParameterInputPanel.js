@@ -184,10 +184,10 @@ const ParameterInputPanel = ({
         </fieldset>
 
         <fieldset className="border border-gray-300 p-4 rounded-md">
-          <legend className="text-sm font-semibold text-teal-600 px-2">Historical Data</legend>
+          <legend className="text-sm font-semibold text-blue-600 px-2">Historical Data</legend>
           <label
             htmlFor="csvUpload"
-            className="w-full inline-block bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-3 rounded-md cursor-pointer transition-colors duration-150 ease-in-out text-sm shadow text-center"
+            className="w-full inline-block bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-3 rounded-md cursor-pointer transition-colors duration-150 ease-in-out text-sm shadow text-center"
           >
             Import Attendance CSV
           </label>
