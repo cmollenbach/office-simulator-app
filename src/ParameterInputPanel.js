@@ -59,72 +59,72 @@ const ParameterInputPanel = ({
 
   return (
     <div className="bg-gray-50 p-6 rounded-xl shadow-lg border border-gray-300 flex flex-col">
-      <h2 className="text-2xl font-semibold text-indigo-700 mb-6 pb-3 border-b-2 border-indigo-100">Simulation Parameters</h2>
-      <div className="space-y-5">
+      <h2 className="text-xl font-semibold text-indigo-700 mb-4 pb-2 border-b-2 border-indigo-100">Simulation Parameters</h2>
+      <div className="space-y-4">
         <div className="flex flex-col">
-          <label htmlFor="employees" className="text-gray-700 font-semibold mb-2 text-sm">Number of Employees:</label>
+          <label htmlFor="employees" className="text-gray-700 font-semibold mb-1 text-xs">Number of Employees:</label>
           <input
             type="number"
             id="employees"
             value={numEmployees}
             onChange={(e) => setNumEmployees(Math.max(1, parseInt(e.target.value, 10) || 1))}
-            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out"
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out text-sm"
             min="1"
           />
         </div>
         <div className="flex flex-col">
-          <label htmlFor="deskRatio" className="text-gray-700 font-semibold mb-2 text-sm">Desk Ratio (Seats / Employees):</label>
+          <label htmlFor="deskRatio" className="text-gray-700 font-semibold mb-1 text-xs">Desk Ratio (Seats / Employees):</label>
           <input
             type="number"
             id="deskRatio"
             value={deskRatio}
             onChange={(e) => setDeskRatio(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
-            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out"
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out text-sm"
             min="0.1"
             step="0.05"
           />
         </div>
         <div className="flex flex-col">
-          <label htmlFor="meanPreference" className="text-gray-700 font-semibold mb-2 text-sm">Avg. Preferred Days (0-5):</label>
+          <label htmlFor="meanPreference" className="text-gray-700 font-semibold mb-1 text-xs">Avg. Preferred Days (0-5):</label>
           <input
             type="number"
             id="meanPreference"
             value={meanPreference}
             onChange={(e) => setMeanPreference(Math.min(5, Math.max(0, parseFloat(e.target.value) || 0)))}
-            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out"
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out text-sm"
             min="0"
             max="5"
             step="0.1"
           />
         </div>
         <div className="flex flex-col">
-          <label htmlFor="stdDev" className="text-gray-700 font-semibold mb-2 text-sm">Std Dev of Preference (0-5 days):</label>
+          <label htmlFor="stdDev" className="text-gray-700 font-semibold mb-1 text-xs">Std Dev of Preference (0-5 days):</label>
           <input
             type="number"
             id="stdDev"
             value={stdDevPreference}
             onChange={(e) => setStdDevPreference(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
-            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out"
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out text-sm"
             min="0.1"
             step="0.1"
           />
         </div>
         <div className="flex flex-col">
-          <label htmlFor="simulations" className="text-gray-700 font-semibold mb-2 text-sm">Number of Simulated Weeks:</label>
+          <label htmlFor="simulations" className="text-gray-700 font-semibold mb-1 text-xs">Number of Simulated Weeks:</label>
           <input
             type="number"
             id="simulations"
             value={numSimulations}
-            onChange={(e) => setNumSimulations(Math.min(10000, Math.max(100, parseInt(e.target.value, 10) || 100)))}
-            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out"
-            min="100"
-            step="100"
-            max="10000"
+            onChange={(e) => setNumSimulations(Math.min(50000, Math.max(1000, parseInt(e.target.value, 10) || 1000)))}
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 ease-in-out text-sm"
+            min="1000"
+            step="1000"
+            max="50000"
           />
         </div>
         <div>
           <h3 className="text-gray-700 font-semibold mb-3 text-sm">Day of Week Popularity Weights:</h3>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-5 gap-1.5">
             {weekDayNames.map((dayName, index) => (
               <div key={dayName} className="flex flex-col items-center">
                 <label htmlFor={`dayWeight-${dayName}`} className="text-gray-600 text-xs mb-1">{dayName}</label>
@@ -133,7 +133,7 @@ const ParameterInputPanel = ({
                   id={`dayWeight-${dayName}`}
                   value={currentDayWeights[index]}
                   onChange={(e) => handleDayWeightChange(index, e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-center text-sm"
+                  className="w-full p-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-center text-xs"
                   min="0"
                   step="0.1"
                   aria-label={`${dayName} weight`}
@@ -141,14 +141,14 @@ const ParameterInputPanel = ({
               </div>
             ))}
           </div>
-           <p className="text-xs text-gray-500 mt-2 italic">
+           <p className="text-xs text-gray-500 mt-1.5 italic">
             Higher values mean the day is more popular for in-office attendance.
           </p>
         </div>
         <div>
           <label
             htmlFor="csvUpload"
-            className="mt-4 inline-block bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-md cursor-pointer transition-colors duration-150 ease-in-out text-sm shadow"
+            className="mt-3 inline-block bg-teal-500 hover:bg-teal-600 text-white font-semibold py-1.5 px-3 rounded-md cursor-pointer transition-colors duration-150 ease-in-out text-xs shadow"
           >
             Import Attendance CSV
           </label>
@@ -167,7 +167,7 @@ const ParameterInputPanel = ({
 
       <button
         onClick={runAllSimulations}
-        className="w-full mt-8 bg-indigo-600 text-white py-3 px-6 rounded-md font-semibold text-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 ease-in-out shadow-md hover:shadow-lg flex items-center justify-center"
+        className="w-full mt-6 bg-indigo-600 text-white py-2.5 px-5 rounded-md font-semibold text-base hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 ease-in-out shadow-md hover:shadow-lg flex items-center justify-center"
         disabled={isLoading}
       >
         {isLoading ? (

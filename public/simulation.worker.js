@@ -29,7 +29,8 @@ function getTargetDaysPerWeek(scenarioName, preferredDays, scenarioRules) {
 
 
 // --- Core Simulation Logic ---
-function runScenario(scenarioName, numEmployees, availableSeats, employeePreferences, numSimulationsConfig, customDayWeights, scenarioRules) {
+function runScenario(workerId, scenarioName, numEmployees, availableSeats, employeePreferences, numSimulationsConfig, customDayWeights, scenarioRules) { // Added workerId
+  console.log(`Worker: runScenario started for ${scenarioName}. Simulating ${numSimulationsConfig} weeks.`);
   const dailyShortageSums = Array(DAYS_IN_WORK_WEEK).fill(0);
   const attendanceDistributionSums = Array(DAYS_IN_WORK_WEEK + 1).fill(0);
 
@@ -42,12 +43,19 @@ function runScenario(scenarioName, numEmployees, availableSeats, employeePrefere
     };
   }
 
+  // Pre-calculate target days per week for each employee based on policy
+  const policyTargetDaysPerEmployee = employeePreferences.map(individualPreference =>
+    getTargetDaysPerWeek(scenarioName, individualPreference, scenarioRules)
+  );
+
   let totalPreferenceDeviation = 0;
   for (let i = 0; i < numEmployees; i++) {
     const individualPreference = employeePreferences[i];
-    const policyTargetDays = getTargetDaysPerWeek(scenarioName, individualPreference, scenarioRules);
+    // Use the pre-calculated policy target days
+    const policyTargetDays = policyTargetDaysPerEmployee[i];
     totalPreferenceDeviation += Math.abs(individualPreference - policyTargetDays);
   }
+  // Average preference deviation is calculated once, which is good.
   const averagePreferenceDeviation = numEmployees > 0 ? totalPreferenceDeviation / numEmployees : 0;
 
   const currentDayWeights = (customDayWeights && customDayWeights.length === DAYS_IN_WORK_WEEK)
@@ -56,6 +64,8 @@ function runScenario(scenarioName, numEmployees, availableSeats, employeePrefere
 
   const dailyAttendeeCountsThisWeek = Array(DAYS_IN_WORK_WEEK).fill(0);
 
+  const progressUpdateInterval = Math.max(1, Math.floor(numSimulationsConfig / 100)); // Aim for ~100 updates
+
   for (let i = 0; i < numSimulationsConfig; i++) {
     for(let day = 0; day < DAYS_IN_WORK_WEEK; day++) {
         dailyAttendeeCountsThisWeek[day] = 0;
@@ -63,8 +73,8 @@ function runScenario(scenarioName, numEmployees, availableSeats, employeePrefere
     const employeeActualDaysThisWeek = Array(numEmployees).fill(0);
 
     for (let empIdx = 0; empIdx < numEmployees; empIdx++) {
-      const preferredDaysForEmp = employeePreferences[empIdx];
-      const targetDaysThisWeek = getTargetDaysPerWeek(scenarioName, preferredDaysForEmp, scenarioRules);
+      // Use the pre-calculated target days for this employee
+      const targetDaysThisWeek = policyTargetDaysPerEmployee[empIdx];
 
       let daysToAttendCount = targetDaysThisWeek;
       let weekdaysForSelection = Array.from({ length: DAYS_IN_WORK_WEEK }, (_, k) => k);
@@ -123,6 +133,16 @@ function runScenario(scenarioName, numEmployees, availableSeats, employeePrefere
       const peopleWithoutSeat = Math.max(0, dailyAttendeeCountsThisWeek[day] - availableSeats);
       dailyShortageSums[day] += peopleWithoutSeat;
     }
+
+    // Send progress update
+    if ((i + 1) % progressUpdateInterval === 0 || (i + 1) === numSimulationsConfig) {
+      const progress = Math.round(((i + 1) / numSimulationsConfig) * 100);
+      // console.log(`Worker: Progress for ${scenarioName} (${workerId}): ${progress}%`); // Optional: can be very noisy
+      // eslint-disable-next-line no-restricted-globals -- self.postMessage is standard in workers
+      self.postMessage({
+        type: 'progress', workerId, scenarioName, progress
+      });
+    }
   }
 
   if (numSimulationsConfig === 0) {
@@ -151,8 +171,9 @@ function runScenario(scenarioName, numEmployees, availableSeats, employeePrefere
 }
 
 // --- Worker Message Handling ---
-// eslint-disable-next-line no-restricted-globals
+// eslint-disable-next-line no-restricted-globals -- self is the global scope in a Web Worker
 self.onmessage = function(event) {
+  console.log("Worker: Message received in worker", event.data);
   const {
     workerId,
     scenarioName,
@@ -164,10 +185,9 @@ self.onmessage = function(event) {
     scenarioRules
   } = event.data;
 
-  console.log(`Worker received job for: ${scenarioName} (${workerId})`);
-
   try {
     const results = runScenario(
+      workerId, // Pass workerId here
       scenarioName,
       numEmployees,
       availableSeats,
@@ -176,11 +196,14 @@ self.onmessage = function(event) {
       customDayWeights,
       scenarioRules
     );
-    // eslint-disable-next-line no-restricted-globals
-    self.postMessage({ workerId, scenarioName, results, error: null });
+    console.log(`Worker: Finished scenario ${scenarioName} (${workerId}). Posting result.`);
+    // Send final result with a specific type
+    // eslint-disable-next-line no-restricted-globals -- self.postMessage is standard in workers
+    self.postMessage({ type: 'result', workerId, scenarioName, results, error: null });
   } catch (e) {
-    console.error(`Worker error for ${scenarioName} (${workerId}):`, e);
+    console.error(`Worker: Error during runScenario for ${scenarioName} (${workerId}):`, e.message, e.stack);
     // eslint-disable-next-line no-restricted-globals
-    self.postMessage({ workerId, scenarioName, results: null, error: e.message, stack: e.stack });
+    // eslint-disable-next-line no-restricted-globals -- self.postMessage is standard in workers
+    self.postMessage({ type: 'error', workerId, scenarioName, results: null, error: e.message, stack: e.stack });
   }
 };

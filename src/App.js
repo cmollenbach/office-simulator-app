@@ -1,17 +1,18 @@
 // src/App.js
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 
+// CORRECTED IMPORT STATEMENT
 import {
-  generateNormalRandom, // Still needed here to generate preferences before sending to worker
+  generateNormalRandom,
   DAYS_IN_WORK_WEEK,
   SCENARIO_NAMES,
-  SCENARIO_RULES // Import the rules to pass to the worker
+  SCENARIO_RULES // Ensure this is exported from simulationUtils.js
 } from './simulationUtils';
 
 import ParameterInputPanel from './ParameterInputPanel';
 import ResultsDisplayPanel from './ResultsDisplayPanel';
-import LlmInsightsPanel from './LlmInsightsPanel';
-import useLlmInsights from './useLlmInsights'; // Corrected: This is where useLlmInsights is imported
+// LlmInsightsPanel is no longer directly rendered here
+import useLlmInsights from './useLlmInsights';
 import 'tippy.js/dist/tippy.css'; // Ensure Tippy CSS is imported
 
 // Main App component
@@ -30,156 +31,266 @@ const App = () => {
   const [empiricalResults, setEmpiricalResults] = useState({});
   const [modeledResults, setModeledResults] = useState({});
   const [currentViewMode, setCurrentViewMode] = useState('modeled');
+  const [activeTab, setActiveTab] = useState('simulation'); // Lifted from ResultsDisplayPanel
   // State to manage loading indicator for simulation
   const [isLoading, setIsLoading] = useState(false);
-
-  // Custom hook for LLM insights
-  const { llmInsights, isLoadingLlm, fetchLlmInsightsData, clearLlmInsights } = useLlmInsights(); // Destructure clearLlmInsights
-
-  // Determine which results to display based on the current view mode
-  const resultsToDisplay = currentViewMode === 'empirical' && Object.keys(empiricalResults).length > 0
-    ? empiricalResults
-    : modeledResults;
+  const [_scenarioProgress, setScenarioProgress] = useState({}); // Prefixed to satisfy ESLint, as it's used in setScenarioProgress(prev => ...)
+  const [overallProgress, setOverallProgress] = useState(0);    // Overall progress for current batch
 
   // Worker related state and refs
   const workerRef = useRef(null);
   const pendingJobsRef = useRef(0);
   const currentModeledResultsRef = useRef({});
   const currentEmpiricalResultsRef = useRef({});
-
-  // Effect to initialize and manage the Web Worker
-  useEffect(() => {
-    const newWorker = new Worker(process.env.PUBLIC_URL + '/simulation.worker.js');
-    workerRef.current = newWorker;
-
-    newWorker.onmessage = (event) => {
-      const { workerId, scenarioName, results, error } = event.data;
-
-      if (error) {
-        console.error(`Error from worker for ${scenarioName} (${workerId}):`, error);
-        // Optionally, set a user-facing error state here
-      } else {
-        if (workerId === 'modeled') {
-          currentModeledResultsRef.current[scenarioName] = results;
-        } else if (workerId === 'empirical') {
-          currentEmpiricalResultsRef.current[scenarioName] = results;
-        }
-      }
-
-      pendingJobsRef.current -= 1;
-      if (pendingJobsRef.current === 0) {
-        // All jobs for the current batch (modeled or empirical) are done
-        if (workerId === 'modeled') {
-          setModeledResults({ ...currentModeledResultsRef.current });
-          if (csvEmpiricalPreferences && csvEmpiricalPreferences.length > 0) {
-            // If CSV data exists, kick off empirical runs
-            const availableSeats = Math.round(numEmployees * deskRatio);
-            const empiricalEmployeePreferences = Array.from(
-              { length: numEmployees },
-              () => csvEmpiricalPreferences[Math.floor(Math.random() * csvEmpiricalPreferences.length)]
-            );
-            runSimulationsWithPreferences('empirical', empiricalEmployeePreferences, availableSeats);
-            setCurrentViewMode('empirical'); // Switch view after empirical starts
-            // setIsLoading is still true until empirical runs complete
-          } else {
-            setCurrentViewMode('modeled');
-            setIsLoading(false); // All simulations done
-          }
-        } else if (workerId === 'empirical') {
-          setEmpiricalResults({ ...currentEmpiricalResultsRef.current });
-          setIsLoading(false); // All simulations done
-          setCurrentViewMode('empirical');
-        }
-      }
-    };
-
-    newWorker.onerror = (errorEvent) => {
-      console.error("Critical Worker error:", errorEvent.message, errorEvent);
-      pendingJobsRef.current = 0;
-      setIsLoading(false);
-      alert("A simulation worker error occurred. Please check the console and try again.");
-    };
-
-    return () => {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-      }
-    };
-  // Rerun effect if these change, as they influence how simulations are dispatched
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [csvEmpiricalPreferences, numEmployees, deskRatio]); // Dependencies for re-initializing or re-running logic related to worker
-
+  const insightsRefreshPendingRef = useRef(false); // To signal a refresh is needed
 
   // Helper function to dispatch jobs to the worker
-  const runSimulationsWithPreferences = (workerId, preferencesToUse, availableSeats) => {
+  // Wrapped in useCallback to stabilize its reference if other dependencies are stable
+  const runSimulationsWithPreferences = useCallback((workerId, preferencesToUse, availableSeats) => {
     if (!workerRef.current) {
-      console.error("Worker not initialized in runSimulationsWithPreferences");
-      setIsLoading(false);
+      console.log("App.js: runSimulationsWithPreferences - workerRef is null or not initialized. WorkerId:", workerId);
+      console.warn("Worker not initialized in runSimulationsWithPreferences for workerId:", workerId, "Might be during cleanup.");
+      setIsLoading(false); // Ensure loading state is handled
       return;
     }
 
-    pendingJobsRef.current = SCENARIO_NAMES.length;
+    // pendingJobsRef.current is now set *before* calling this function for a new batch
 
-    // Initialize/clear the correct results ref for the current batch
     if (workerId === 'modeled') {
-      currentModeledResultsRef.current = modeledResults["Imported CSV Data"]
-        ? { "Imported CSV Data": modeledResults["Imported CSV Data"] }
+        currentModeledResultsRef.current = currentModeledResultsRef.current["Imported CSV Data"] // Preserve existing CSV data if any
+        ? { "Imported CSV Data": currentModeledResultsRef.current["Imported CSV Data"] }
         : {};
     } else if (workerId === 'empirical') {
-      currentEmpiricalResultsRef.current = empiricalResults["Imported CSV Data"]
-        ? { "Imported CSV Data": empiricalResults["Imported CSV Data"] }
+        currentEmpiricalResultsRef.current = currentEmpiricalResultsRef.current["Imported CSV Data"] // Preserve existing CSV data
+        ? { "Imported CSV Data": currentEmpiricalResultsRef.current["Imported CSV Data"] }
         : {};
     }
 
-
     for (const scenarioName of SCENARIO_NAMES) {
+      console.log(`App.js: Posting job to worker for scenario: ${scenarioName}, workerId: ${workerId}`);
       workerRef.current.postMessage({
         workerId,
         scenarioName,
         numEmployees,
         availableSeats,
         employeePreferences: preferencesToUse,
-        numSimulationsConfig: numSimulations,
+        numSimulationsConfig: numSimulations, // Ensure this matches worker's expectation
         customDayWeights: dayWeights,
         scenarioRules: SCENARIO_RULES
       });
     }
-  };
+  }, [numEmployees, numSimulations, dayWeights]); // Removed modeledResults, empiricalResults
 
-  // Main function to run all simulations
+
+  // Effect to initialize and manage the Web Worker
+  useEffect(() => {
+    console.log("App.js: Worker useEffect - Setting up new worker. Dependencies changed or initial setup.");
+    const newWorker = new Worker(process.env.PUBLIC_URL + '/simulation.worker.js');
+    workerRef.current = newWorker;
+
+    newWorker.onmessage = (event) => {
+      const { type, workerId, scenarioName, results, progress, error } = event.data;
+
+      if (type === 'progress') {
+        setScenarioProgress(prev => {
+          const updated = { ...prev, [scenarioName]: progress };
+          const totalScenariosInBatch = SCENARIO_NAMES.length;
+          if (totalScenariosInBatch > 0) {
+            const currentProgressSum = Object.values(updated).reduce((sum, p) => sum + p, 0);
+            const currentBatchAverageProgress = currentProgressSum / totalScenariosInBatch;
+
+            const willRunEmpirical = csvEmpiricalPreferences && csvEmpiricalPreferences.length > 0;
+            const numTotalBatches = willRunEmpirical ? 2 : 1;
+
+            let newOverallProgress = 0;
+            if (workerId === 'modeled') {
+              newOverallProgress = currentBatchAverageProgress / numTotalBatches;
+            } else if (workerId === 'empirical') {
+              // Modeled part is 100% / numTotalBatches (e.g., 50% if 2 batches)
+              newOverallProgress = (100 / numTotalBatches) + (currentBatchAverageProgress / numTotalBatches);
+            }
+            setOverallProgress(Math.min(100, Math.round(newOverallProgress)));
+          }
+          return updated;
+        });
+      } else if (type === 'result') {
+        console.log(`App.js: Worker result received for ${scenarioName} (${workerId}). Pending jobs before: ${pendingJobsRef.current}`);
+        setScenarioProgress(prevScenarioProgress => { // Use a different name for prev state to avoid conflict
+          const updated = { ...prevScenarioProgress, [scenarioName]: 100 }; // Mark as 100% done
+          const totalScenariosInBatch = SCENARIO_NAMES.length;
+           if (totalScenariosInBatch > 0) {
+            // Recalculate overall progress based on this scenario finishing
+            // This logic is now similar to the 'progress' type, ensuring 100% for this scenario
+            const currentProgressSum = Object.values(updated).reduce((sum, p) => sum + p, 0);
+            const currentBatchAverageProgress = currentProgressSum / totalScenariosInBatch;
+
+            const willRunEmpirical = csvEmpiricalPreferences && csvEmpiricalPreferences.length > 0;
+            const numTotalBatches = willRunEmpirical ? 2 : 1;
+
+            let newOverallProgress = 0;
+            if (workerId === 'modeled') {
+              newOverallProgress = currentBatchAverageProgress / numTotalBatches;
+            } else if (workerId === 'empirical') {
+              newOverallProgress = (100 / numTotalBatches) + (currentBatchAverageProgress / numTotalBatches);
+            }
+            setOverallProgress(Math.min(100, Math.round(newOverallProgress)));
+          }
+          return updated;
+        });
+
+        if (workerId === 'modeled') {
+          currentModeledResultsRef.current[scenarioName] = results;
+        } else if (workerId === 'empirical') {
+          currentEmpiricalResultsRef.current[scenarioName] = results;
+        }
+
+        pendingJobsRef.current -= 1;
+        if (pendingJobsRef.current === 0) {
+          // All jobs for the current workerId batch are done
+          console.log(`App.js: All jobs completed for workerId: ${workerId}`);
+          if (workerId === 'modeled') {
+            setModeledResults({ ...currentModeledResultsRef.current });
+            if (csvEmpiricalPreferences && csvEmpiricalPreferences.length > 0) {
+              const availableSeats = Math.round(numEmployees * deskRatio);
+              const empiricalEmployeePreferencesForWorker = Array.from(
+                { length: numEmployees },
+                () => csvEmpiricalPreferences[Math.floor(Math.random() * csvEmpiricalPreferences.length)]
+              );
+              
+              currentEmpiricalResultsRef.current = currentEmpiricalResultsRef.current["Imported CSV Data"]
+                ? { "Imported CSV Data": currentEmpiricalResultsRef.current["Imported CSV Data"] }
+                : {};
+              
+              // Reset progress for the empirical batch
+              const initialEmpiricalProgress = SCENARIO_NAMES.reduce((acc, name) => ({ ...acc, [name]: 0 }), {});
+              setScenarioProgress(initialEmpiricalProgress);
+              setOverallProgress(0);
+
+              console.log("App.js: Chaining to empirical simulation.");
+              pendingJobsRef.current = SCENARIO_NAMES.length;
+              runSimulationsWithPreferences('empirical', empiricalEmployeePreferencesForWorker, availableSeats);
+              setCurrentViewMode('empirical');
+            } else {
+              setCurrentViewMode('modeled');
+              setIsLoading(false);
+            }
+          } else if (workerId === 'empirical') {
+            setEmpiricalResults({ ...currentEmpiricalResultsRef.current });
+            setIsLoading(false);
+            setCurrentViewMode('empirical');
+          }
+        }
+      } else if (type === 'error') {
+        console.error(`App.js: Error from worker for ${scenarioName} (${workerId}):`, error.message, error.stack);
+        // Potentially set progress to an error state or 0
+        setOverallProgress(0); // Or some error indication
+        // Decrement pending jobs if an error occurs for one job,
+        // to prevent getting stuck if other jobs complete.
+        pendingJobsRef.current -=1;
+        if (pendingJobsRef.current === 0) setIsLoading(false);
+      }
+    };
+
+    newWorker.onerror = (errorEvent) => {
+      console.error("App.js: Critical Worker error:", errorEvent.message, errorEvent);
+      pendingJobsRef.current = 0;
+      setIsLoading(false);
+      alert("A simulation worker error occurred. Please check the console and try again.");
+    };
+
+    return () => {
+      console.log("App.js: Worker useEffect - Terminating old worker.");
+      if (workerRef.current) {
+        workerRef.current.terminate();
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [csvEmpiricalPreferences, numEmployees, deskRatio, runSimulationsWithPreferences]); // Added runSimulationsWithPreferences
+
+  const { llmInsights, isLoadingLlm, fetchLlmInsightsData, clearLlmInsights } = useLlmInsights();
+
+  const handleGetLlmInsights = useCallback(() => {
+    fetchLlmInsightsData({
+      numEmployees,
+      deskRatio,
+      meanPreference,
+      stdDevPreference,
+      dayWeights,
+      numSimulations,
+      modeledResults,
+      empiricalResults: (csvEmpiricalPreferences && Object.keys(empiricalResults).length > 0) ? empiricalResults : null,
+      csvAvailable: !!csvEmpiricalPreferences
+    });
+  }, [fetchLlmInsightsData, numEmployees, deskRatio, meanPreference, stdDevPreference, dayWeights, numSimulations, modeledResults, empiricalResults, csvEmpiricalPreferences]);
+
+
+  // Effect to automatically refresh insights after a simulation completes if on the insights tab
+  useEffect(() => {
+    if (!isLoading && activeTab === 'insights' && insightsRefreshPendingRef.current) {
+      const hasModeledData = modeledResults && Object.keys(modeledResults).filter(key => key !== "Imported CSV Data").length > 0;
+      const hasEmpiricalData = empiricalResults && Object.keys(empiricalResults).filter(key => key !== "Imported CSV Data").length > 0;
+
+      if (hasModeledData || hasEmpiricalData) {
+        // console.log("App.js useEffect triggering insights refresh after simulation.");
+        handleGetLlmInsights();
+      }
+      insightsRefreshPendingRef.current = false; // Reset the flag
+    }
+  }, [isLoading, activeTab, modeledResults, empiricalResults, handleGetLlmInsights]); // handleGetLlmInsights is a dependency
+
+  // Effect to clear the refresh pending flag if the user navigates away from insights tab
+  useEffect(() => {
+    if (activeTab !== 'insights') insightsRefreshPendingRef.current = false;
+  }, [activeTab]);
+
+  const resultsToDisplayForSimulationTab = currentViewMode === 'empirical' && Object.keys(empiricalResults).length > 0
+    ? empiricalResults
+    : modeledResults;
+
   const runAllSimulations = useCallback(() => {
+    console.log("App.js: runAllSimulations called.");
     if (!workerRef.current) {
       alert("Simulation worker is not ready. Please try again in a moment.");
+      console.error("App.js: runAllSimulations - workerRef is null. Cannot start simulation.");
       return;
     }
     setIsLoading(true);
-    clearLlmInsights(); // Use the function from the hook to clear insights
+    if (clearLlmInsights) clearLlmInsights();
+    insightsRefreshPendingRef.current = true; // Signal that insights should be refreshed after this run
+    
+    // Reset progress for the modeled batch
+    const initialModeledProgress = SCENARIO_NAMES.reduce((acc, name) => ({ ...acc, [name]: 0 }), {});
+    setScenarioProgress(initialModeledProgress);
+    setOverallProgress(0);
+
+    // Set pending jobs for the initial modeled batch
+    pendingJobsRef.current = SCENARIO_NAMES.length;
 
     const availableSeats = Math.round(numEmployees * deskRatio);
-
-    // Preserve "Imported CSV Data" if it exists from previous CSV processing
-    // This ensures it's not wiped out when new simulations run.
-    const initialModeled = modeledResults["Imported CSV Data"]
-        ? { "Imported CSV Data": modeledResults["Imported CSV Data"] }
+    // Preserve "Imported CSV Data" if it exists from a previous CSV import
+    const initialModeled = currentModeledResultsRef.current["Imported CSV Data"]
+        ? { "Imported CSV Data": currentModeledResultsRef.current["Imported CSV Data"] }
         : {};
-    const initialEmpirical = empiricalResults["Imported CSV Data"]
-        ? { "Imported CSV Data": empiricalResults["Imported CSV Data"] }
+    const initialEmpirical = currentEmpiricalResultsRef.current["Imported CSV Data"]
+        ? { "Imported CSV Data": currentEmpiricalResultsRef.current["Imported CSV Data"] }
         : {};
-
-    // Set the state immediately to reflect the preserved CSV data (if any)
-    // and clear out old scenario results.
     setModeledResults(initialModeled);
     setEmpiricalResults(initialEmpirical);
 
-    // --- Run 1: Modeled Preferences (Normal Distribution) ---
     const modeledEmployeePreferences = Array.from({ length: numEmployees }, () => {
       return Math.min(DAYS_IN_WORK_WEEK, Math.max(0, Math.round(generateNormalRandom(meanPreference, stdDevPreference))));
     });
+    console.log("App.js: runAllSimulations - Dispatching 'modeled' simulations.");
     runSimulationsWithPreferences('modeled', modeledEmployeePreferences, availableSeats);
-    setCurrentViewMode('modeled'); // Default to modeled view; will switch if empirical runs
-
-    // Empirical runs are chained via the worker's onmessage handler
-  }, [numEmployees, deskRatio, meanPreference, stdDevPreference, numSimulations, dayWeights, setIsLoading, clearLlmInsights, modeledResults, empiricalResults]); // Added clearLlmInsights to dependencies
+    setCurrentViewMode('modeled');
+  }, [
+      numEmployees,
+      deskRatio,
+      meanPreference,
+      stdDevPreference,
+      runSimulationsWithPreferences,
+      clearLlmInsights // Ensure clearLlmInsights is here
+    ]);
 
 
   const processImportedData = (csvData) => {
@@ -326,11 +437,10 @@ const App = () => {
     
     setModeledResults(prev => ({ ...prev, ...csvResultEntry }));
     setEmpiricalResults(prev => ({ ...prev, ...csvResultEntry }));
-    // Also update the refs if they exist, to ensure consistency if a simulation is run immediately after
-    if (currentModeledResultsRef.current) {
+    if (currentModeledResultsRef.current) { 
         currentModeledResultsRef.current = { ...currentModeledResultsRef.current, ...csvResultEntry };
     }
-    if (currentEmpiricalResultsRef.current) {
+    if (currentEmpiricalResultsRef.current) { 
         currentEmpiricalResultsRef.current = { ...currentEmpiricalResultsRef.current, ...csvResultEntry };
     }
     
@@ -340,25 +450,13 @@ const App = () => {
     if (currentExcludedWeeks.length > 0) {
       alertMessage += `\nExcluded weeks: ${currentExcludedWeeks.join('; ')}`;
     }
+    // If the user was on the insights tab, switch them to simulation results
+    // as new data/parameters are now available.
+    if (activeTab === 'insights') {
+      setActiveTab('simulation');
+    }
     alert(alertMessage);
   };
-
-
-  const handleGetLlmInsights = useCallback(() => {
-    const currentResults = currentViewMode === 'empirical' && Object.keys(empiricalResults).length > 0
-      ? empiricalResults
-      : modeledResults;
-
-    fetchLlmInsightsData({
-      numEmployees,
-      deskRatio,
-      meanPreference,
-      stdDevPreference,
-      dayWeights,
-      numSimulations,
-      results: currentResults // Pass the correctly determined resultsToDisplay
-    });
-  }, [fetchLlmInsightsData, numEmployees, deskRatio, meanPreference, stdDevPreference, dayWeights, numSimulations, currentViewMode, modeledResults, empiricalResults]);
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-8 font-sans flex flex-col items-center">
@@ -386,7 +484,10 @@ const App = () => {
           </div>
           <div className="lg:col-span-2">
             <ResultsDisplayPanel
-              results={resultsToDisplay}
+              results={resultsToDisplayForSimulationTab}
+              modeledResults={modeledResults}      
+              empiricalResults={empiricalResults}  
+              csvEmpiricalPreferences={csvEmpiricalPreferences} 
               isLoading={isLoading}
               currentViewMode={currentViewMode}
               setCurrentViewMode={setCurrentViewMode}
@@ -395,15 +496,13 @@ const App = () => {
               numSimulations={numSimulations}
               numEmployees={numEmployees}
               deskRatio={deskRatio}
-            />
-          </div>
-          <div className="lg:col-span-3">
-            <LlmInsightsPanel
-              results={resultsToDisplay}
               getLlmInsights={handleGetLlmInsights}
+              activeTab={activeTab}         // Pass activeTab down
+              setActiveTab={setActiveTab}     // Pass setActiveTab down
               isLoadingLlm={isLoadingLlm}
+              _scenarioProgress={_scenarioProgress} // Pass down to mark as "used"
+              overallProgress={overallProgress} // Pass overall progress
               llmInsights={llmInsights}
-              isLoading={isLoading}
             />
           </div>
         </div>
