@@ -1,13 +1,19 @@
 // c:\Users\chris\Documents\office-simulator-app\src\ResultsDisplayPanel.js
 import React from 'react';
+import Tippy from '@tippyjs/react'; // Import Tippy
+
+// It's good practice to import Tippy's base CSS in your main App.js or index.js
+// For example, in your src/index.js or src/App.js:
+// import 'tippy.js/dist/tippy.css'; // For default styling
+// import 'tippy.js/themes/light.css'; // Optional: if you want to use a theme
 
 const ResultsDisplayPanel = ({
   results,
   isLoading,
   currentViewMode,
-  setCurrentViewMode, // For the toggle
-  excludedWeeksLog,   // New prop for excluded weeks
-  showToggle,         // To conditionally render the toggle
+  setCurrentViewMode,
+  excludedWeeksLog,
+  showToggle,
   numSimulations,
   numEmployees,
   deskRatio,
@@ -16,10 +22,8 @@ const ResultsDisplayPanel = ({
   const weekDayNames = ["Mon", "Tue", "Wed", "Thu", "Fri"];
   const attendanceDays = [0, 1, 2, 3, 4, 5];
 
-
   return (
     <div className="bg-gray-50 p-6 rounded-xl shadow-lg border border-gray-300 flex flex-col">
-      {/* ... (existing code for no results/loading states) ... */}
       {!hasResults && !isLoading && (
         <div className="flex-grow flex flex-col items-center justify-center text-center text-gray-500 p-4">
           <p className="text-xl mb-4">Welcome to the Simulator!</p>
@@ -55,8 +59,8 @@ const ResultsDisplayPanel = ({
               </button>
             </div>
           )}
-       
-          <h2 className="text-xl font-semibold text-indigo-700 mb-2 pb-3 text-center border-b-2 border-indigo-100">Weekly Simulation: Daily Seat Shortage & Metrics</h2> {/* MODIFIED TITLE */}
+
+          <h2 className="text-xl font-semibold text-indigo-700 mb-2 pb-3 text-center border-b-2 border-indigo-100">Weekly Simulation: Daily Seat Shortage & Metrics</h2>
 
           <div className="space-y-6 flex-grow">
             <div className="overflow-x-auto rounded-md shadow-lg border border-gray-200">
@@ -64,12 +68,16 @@ const ResultsDisplayPanel = ({
                 <thead className="bg-indigo-600 text-white">
                   <tr>
                     <th className="py-3 px-4 text-left text-sm font-semibold">Scenario</th>
-                    <th className="py-3 px-4 text-center text-sm font-semibold tooltip" aria-describedby="avg-shortage-tooltip">Avg Shortage
-                        <span id="avg-shortage-tooltip" className="tooltiptext" role="tooltip">Avg. employees without a desk per day.</span>
-                    </th>
-                    <th className="py-3 px-4 text-center text-sm font-semibold tooltip" aria-describedby="deviation-tooltip">Pref Deviation
-                        <span id="deviation-tooltip" className="tooltiptext" role="tooltip">Avg. days an employee's attendance deviates from their preference due to policy. Lower is more flexible.</span>
-                    </th>
+                    <Tippy content="Avg. employees without a desk per day." placement="top">
+                      <th className="py-3 px-4 text-center text-sm font-semibold">
+                        Avg Shortage
+                      </th>
+                    </Tippy>
+                    <Tippy content="Avg. days an employee's attendance deviates from their preference due to policy. Lower is more flexible." placement="top">
+                      <th className="py-3 px-4 text-center text-sm font-semibold">
+                        Pref Deviation
+                      </th>
+                    </Tippy>
                     {weekDayNames.map(day => (
                        <th key={day} className="py-3 px-2 text-center text-sm font-semibold">{day}</th>
                     ))}
@@ -84,7 +92,6 @@ const ResultsDisplayPanel = ({
                       <td className="py-3 px-4 text-gray-800 text-sm font-medium text-center">
                          {resultObj && typeof resultObj.overallAverage === 'number' ? Math.round(resultObj.overallAverage) : (resultObj.overallAverage === null ? 'N/A' : 'Err')}
                       </td>
-                      {/* ADDED CELL for new metric */}
                       <td className="py-3 px-4 text-gray-800 text-sm font-medium text-center">
                         {resultObj && typeof resultObj.averagePreferenceDeviation === 'number' ? resultObj.averagePreferenceDeviation.toFixed(2) : 'N/A'}
                       </td>
@@ -101,7 +108,6 @@ const ResultsDisplayPanel = ({
               </table>
             </div>
 
-            {/* ... (existing Attendance Distribution Table) ... */}
             <div className="bg-gray-50 p-4 rounded-md shadow-lg border border-gray-200 mt-6">
               <h3 className="text-xl font-semibold text-indigo-700 mb-4 text-center border-b-2 border-indigo-100 pb-3">Attendance Distribution Comparison (% of Employees)</h3>
               <div className="overflow-x-auto">
@@ -131,8 +137,7 @@ const ResultsDisplayPanel = ({
                 </table>
               </div>
             </div>
-            
-            {/* ... (existing Excluded Outlier Weeks display) ... */}
+
              {excludedWeeksLog && excludedWeeksLog.length > 0 && (
               <div className="mt-6 p-4 bg-yellow-50 border border-yellow-300 rounded-md text-sm">
                 <h4 className="font-semibold text-yellow-800 mb-2">Note on Data Processing:</h4>
@@ -144,7 +149,6 @@ const ResultsDisplayPanel = ({
                 </ul>
               </div>
             )}
-
           </div>
         </>
       )}

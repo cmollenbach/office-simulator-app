@@ -14,7 +14,7 @@ import ResultsDisplayPanel from './ResultsDisplayPanel';
 import LlmInsightsPanel from './LlmInsightsPanel';
 // import useD3Chart from './useD3Chart'; // No longer using D3 chart
 import useLlmInsights from './useLlmInsights'; // Import custom hook for LLM
-
+import 'tippy.js/dist/tippy.css';
 
 
 // Main App component
