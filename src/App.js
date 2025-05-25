@@ -21,9 +21,9 @@ import useLlmInsights from './useLlmInsights'; // Import custom hook for LLM
 const App = () => {
   // Input state variables
   const [numEmployees, setNumEmployees] = useState(100); // Default number of employees
-  const [deskRatio, setDeskRatio] = useState(0.7); // Default desk ratio (70% desks compared to employees)
+  const [deskRatio, setDeskRatio] = useState(0.4); // Default desk ratio (70% desks compared to employees)
   const [meanPreference, setMeanPreference] = useState(3); // Default average preferred days in office
-  const [stdDevPreference, setStdDevPreference] = useState(0.8); // Default standard deviation for preferred days
+  const [stdDevPreference, setStdDevPreference] = useState(1.5); // Default standard deviation for preferred days
   const [numSimulations, setNumSimulations] = useState(10000); // Default number of simulation runs (now represents weeks)
   const [dayWeights, setDayWeights] = useState([1, 1, 1, 1, 1]); // Default weights
   const [csvEmpiricalPreferences, setCsvEmpiricalPreferences] = useState(null); // To store flat list of preferences from CSV

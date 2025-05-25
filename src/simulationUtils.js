@@ -45,22 +45,31 @@ export function getTargetDaysPerWeek(scenarioName, preferredDays) {
 }
 
 // Function to run the Monte Carlo simulation for a single scenario
-// Now simulates weeks and distributes attendance within each week, considering day weights.
 export function runScenario(scenarioName, numEmployees, availableSeats, employeePreferences, numSimulationsConfig, customDayWeights) {
-  // Initialize sums for daily shortages (Mon, Tue, Wed, Thu, Fri)
   const dailyShortageSums = Array(DAYS_IN_WORK_WEEK).fill(0);
-  // Initialize sums for attendance distribution (0 to 5 days)
   const attendanceDistributionSums = Array(DAYS_IN_WORK_WEEK + 1).fill(0);
 
   if (numEmployees === 0) {
     return {
       overallAverage: 0,
       dailyAverages: Array(DAYS_IN_WORK_WEEK).fill(0),
-      attendanceDistribution: Array(DAYS_IN_WORK_WEEK + 1).fill(0)
+      attendanceDistribution: Array(DAYS_IN_WORK_WEEK + 1).fill(0),
+      averagePreferenceDeviation: 0, // ADDED: Default for new metric
     };
   }
 
-  // Ensure customDayWeights is a valid array, otherwise default to equal weights
+  // --- Calculate Average Preference Deviation ---
+  let totalPreferenceDeviation = 0;
+  for (let i = 0; i < numEmployees; i++) {
+    // employeePreferences[i] is the raw preference (already clamped 0-5 during generation)
+    const individualPreference = employeePreferences[i];
+    // Determine the target days under the current policy scenario
+    const policyTargetDays = getTargetDaysPerWeek(scenarioName, individualPreference);
+    totalPreferenceDeviation += Math.abs(individualPreference - policyTargetDays);
+  }
+  const averagePreferenceDeviation = numEmployees > 0 ? totalPreferenceDeviation / numEmployees : 0;
+  // --- End Calculation ---
+
   const currentDayWeights = (customDayWeights && customDayWeights.length === DAYS_IN_WORK_WEEK)
     ? customDayWeights
     : Array(DAYS_IN_WORK_WEEK).fill(1);
@@ -70,32 +79,28 @@ export function runScenario(scenarioName, numEmployees, availableSeats, employee
     const employeeActualDaysThisWeek = Array(numEmployees).fill(0);
 
     for (let empIdx = 0; empIdx < numEmployees; empIdx++) {
-      const preferredDaysForEmp = employeePreferences[empIdx]; // This now comes pre-determined (either modeled or empirical)
+      const preferredDaysForEmp = employeePreferences[empIdx];
       const targetDaysThisWeek = getTargetDaysPerWeek(scenarioName, preferredDaysForEmp);
 
       let daysToAttendCount = targetDaysThisWeek;
-      // Create a mutable list of weekdays for this employee's selection process
       let weekdaysForSelection = Array.from({ length: DAYS_IN_WORK_WEEK }, (_, k) => k);
       let numAvailableWeekdays = DAYS_IN_WORK_WEEK;
 
       for (let j = 0; j < daysToAttendCount && numAvailableWeekdays > 0; j++) {
         let totalWeightOfAvailableDays = 0;
         for (let dayPoolIdx = 0; dayPoolIdx < numAvailableWeekdays; dayPoolIdx++) {
-          // Ensure weights are non-negative for this calculation
           totalWeightOfAvailableDays += Math.max(0, currentDayWeights[weekdaysForSelection[dayPoolIdx]]);
         }
 
-        let chosenDayPoolIndex = -1; // Index within weekdaysForSelection
+        let chosenDayPoolIndex = -1;
 
         if (totalWeightOfAvailableDays <= 0) {
-          // Fallback: All remaining weights are zero or negative. Pick randomly (unweighted).
           if (numAvailableWeekdays > 0) {
             chosenDayPoolIndex = Math.floor(Math.random() * numAvailableWeekdays);
           } else {
-            break; // No more days to pick from
+            break;
           }
         } else {
-          // Weighted random sampling
           const randomThreshold = Math.random() * totalWeightOfAvailableDays;
           let cumulativeWeight = 0;
           for (let dayPoolIdx = 0; dayPoolIdx < numAvailableWeekdays; dayPoolIdx++) {
@@ -111,15 +116,11 @@ export function runScenario(scenarioName, numEmployees, availableSeats, employee
           const actualChosenDay = weekdaysForSelection[chosenDayPoolIndex];
           weeklyAttendance[empIdx][actualChosenDay] = 1;
           employeeActualDaysThisWeek[empIdx]++;
-
-          // "Remove" the chosen day by swapping it with the last available day and decrementing count
           weekdaysForSelection[chosenDayPoolIndex] = weekdaysForSelection[numAvailableWeekdays - 1];
           numAvailableWeekdays--;
         } else {
-          // This should ideally not be reached if numAvailableWeekdays > 0.
-          // For robustness, if there are still days, pick one.
           if (numAvailableWeekdays > 0) {
-              const actualChosenDay = weekdaysForSelection[0]; // Pick the first available
+              const actualChosenDay = weekdaysForSelection[0];
               weeklyAttendance[empIdx][actualChosenDay] = 1;
               employeeActualDaysThisWeek[empIdx]++;
               weekdaysForSelection[0] = weekdaysForSelection[numAvailableWeekdays - 1];
@@ -131,13 +132,10 @@ export function runScenario(scenarioName, numEmployees, availableSeats, employee
       }
     }
 
-    // Calculate attendance distribution for this week
     for (let empIdx = 0; empIdx < numEmployees; empIdx++) {
-      // Ensure days attended is within 0-5 range for indexing
       const daysAttended = Math.min(DAYS_IN_WORK_WEEK, Math.max(0, employeeActualDaysThisWeek[empIdx]));
       attendanceDistributionSums[daysAttended]++;
     }
-
 
     for (let day = 0; day < DAYS_IN_WORK_WEEK; day++) {
       let currentDayAttendees = 0;
@@ -147,31 +145,31 @@ export function runScenario(scenarioName, numEmployees, availableSeats, employee
         }
       }
       const peopleWithoutSeat = Math.max(0, currentDayAttendees - availableSeats);
-      // Accumulate shortage for the specific day of the week
       dailyShortageSums[day] += peopleWithoutSeat;
     }
   }
 
-  if (numSimulationsConfig === 0) { // Should be caught by the numEmployees check earlier, but good for safety
+  if (numSimulationsConfig === 0) {
     return {
       overallAverage: 0,
       dailyAverages: Array(DAYS_IN_WORK_WEEK).fill(0),
-      attendanceDistribution: Array(DAYS_IN_WORK_WEEK + 1).fill(0)
+      attendanceDistribution: Array(DAYS_IN_WORK_WEEK + 1).fill(0),
+      averagePreferenceDeviation: 0, // ADDED: Default for new metric
     };
   }
 
   const averageDailyShortages = dailyShortageSums.map(sum => sum / numSimulationsConfig);
   const overallAverageShortage = averageDailyShortages.reduce((acc, val) => acc + val, 0) / DAYS_IN_WORK_WEEK;
-  // Calculate average attendance distribution as percentage of total employee-weeks simulated
+  
   const totalEmployeeWeeksSimulated = numSimulationsConfig * numEmployees;
   const averageAttendanceDistribution = attendanceDistributionSums.map(sum =>
     totalEmployeeWeeksSimulated > 0 ? (sum / totalEmployeeWeeksSimulated) * 100 : 0
   );
 
-
   return {
-    overallAverage: overallAverageShortage,
-    dailyAverages: averageDailyShortages,
-    attendanceDistribution: averageAttendanceDistribution
+    overallAverage: parseFloat(overallAverageShortage.toFixed(2)),
+    dailyAverages: averageDailyShortages.map(avg => parseFloat(avg.toFixed(2))),
+    attendanceDistribution: averageAttendanceDistribution,
+    averagePreferenceDeviation: parseFloat(averagePreferenceDeviation.toFixed(2)) // ADDED: New metric
   };
 }

@@ -14,13 +14,11 @@ const useLlmInsights = () => {
     setLlmInsights(""); // Clears previous insights
 
     const prompt = `
-      I have performed a Monte Carlo simulation for office seat utilization.
-      The simulation models employees fulfilling a weekly target number of attendance days,
-      with the specific days of attendance being random within each week.
-      The results include the average number of employees without a desk per day (overall and for Mon-Fri),
-      and the average distribution of how many days employees attend per week (0 to 5 days).
+      Analyze the following Monte Carlo simulation results for office seat utilization.
+      The simulation models employees fulfilling weekly attendance targets, with random day selection.
+      Results include average employees without desks and attendance distributions.
 
-      Here are the simulation parameters:
+      Simulation Parameters:
       - Number of Employees: ${numEmployees}
       - Desk Ratio (Seats / Employees): ${deskRatio} (meaning ${Math.round(numEmployees * deskRatio)} available seats)
       - Average Employee Preference for days in office: ${meanPreference.toFixed(1)} days
@@ -28,34 +26,38 @@ const useLlmInsights = () => {
       - Number of Simulated Weeks: ${numSimulations}
       - Day Popularity Weights (Mon-Fri): [${(dayWeights || [1,1,1,1,1]).join(', ')}]
 
-      Here are the simulation results for various scenarios and potentially imported CSV data:
+      Simulation Results:
       ${Object.entries(results).map(([scenario, resultObj]) => {
-        // Format daily averages if available
         const dailyAvgString = resultObj.dailyAverages
-          ? `Daily Average Employees Without Desk (Mon-Fri): ${resultObj.dailyAverages.map(d => Math.round(d)).join(', ')}`
-          : 'Daily Average Employees Without Desk: N/A';
-
-        // Format attendance distribution if available
+          ? `Daily Avg Employees Without Desk (Mon-Fri): ${resultObj.dailyAverages.map(d => Math.round(d)).join(', ')}`
+          : 'Daily Avg Employees Without Desk: N/A';
         const attendanceDistString = resultObj.attendanceDistribution
           ? `Attendance Distribution (0-5 days, % of employees): ${resultObj.attendanceDistribution.map(p => p.toFixed(1) + '%').join(', ')}`
           : 'Attendance Distribution: N/A';
-
-        // Format overall average if available
         const overallAvgString = typeof resultObj.overallAverage === 'number'
-          ? `Overall Average Employees Without Desk: ${Math.round(resultObj.overallAverage)}`
-          : (resultObj.overallAverage === null ? 'Overall Average Employees Without Desk: N/A' : 'Overall Average Employees Without Desk: Error');
-
-
+          ? `Overall Avg Employees Without Desk: ${Math.round(resultObj.overallAverage)}`
+          : (resultObj.overallAverage === null ? 'Overall Avg Employees Without Desk: N/A' : 'Overall Avg Employees Without Desk: Error');
         return `
-        - Source/Scenario: ${scenario}
+        - Scenario: ${scenario}
           - ${overallAvgString}
           - ${dailyAvgString}
           - ${attendanceDistString}
         `;
       }).join('')}
 
-      Please provide a brief summary of these results. Compare the "Imported CSV Data" distribution to the simulated scenarios. Then, for the top 2-3 best-performing scenarios (those with the lowest "Overall Average Employees Without Desk", excluding "Imported CSV Data" if it doesn't have this metric), analyze their potential pros and cons from both the company's and the employees' perspectives.
-      Consider the daily breakdown and the attendance distribution patterns if they reveal significant insights (e.g., how policies shift the number of days people come in). Focus on clarity and actionable insights.
+      Please provide the analysis in the following structured Markdown format, keeping each section concise:
+
+      ## Overall Summary (Max 3-4 sentences)
+      Briefly summarize the key findings from all scenarios.
+
+      ## Top 2-3 Scenarios Analysis (Lowest "Overall Average Employees Without Desk")
+      Identify the top 2-3 scenarios (excluding "Imported CSV Data" if it lacks the overall average metric). For each of these top scenarios, provide:
+      - ### Scenario Name: [Name of Scenario]
+        
+        **Key Insight for this Scenario:** (1 concise sentence)
+
+      ## Actionable Recommendations (3-5 bullet points)
+      Based on the entire analysis, provide a few actionable recommendations or key takeaways for policy consideration.
     `;
 
     const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
