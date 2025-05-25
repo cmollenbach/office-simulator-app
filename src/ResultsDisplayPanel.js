@@ -2,31 +2,44 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import Tippy from '@tippyjs/react';
-import LlmInsightsPanel from './LlmInsightsPanel'; // Import LlmInsightsPanel
+import LlmInsightsPanel from './LlmInsightsPanel';
+import PreferenceVsShortageScatterPlot from './PreferenceVsShortageScatterPlot'; // New import
+import AttendanceDistributionChart from './AttendanceDistributionChart'; // New import
 
 const ResultsDisplayPanel = ({
-  results, // This will be either modeledResults or empiricalResults based on viewMode for simulation tab
-  modeledResults, // Pass separately for LLM
-  empiricalResults, // Pass separately for LLM
-  csvEmpiricalPreferences, // To know if empirical data exists for LLM context
+  results,
+  modeledResults,
+  empiricalResults,
+  csvEmpiricalPreferences,
   isLoading,
-  currentViewMode,  // For the "Simulation Results" tab's internal toggle
-  setCurrentViewMode, // For the "Simulation Results" tab's internal toggle
-  showToggle,         // For the "Simulation Results" tab's internal toggle
+  currentViewMode,
+  setCurrentViewMode,
+  showToggle,
   excludedWeeksLog,
-  _numSimulations, // Marked as unused if not directly used in this component's render logic
-  _numEmployees,   // Marked as unused
-  _deskRatio,      // Marked as unused
-  getLlmInsights,     // For LlmInsightsPanel
-  isLoadingLlm,       // For LlmInsightsPanel
-  llmInsights,        // For LlmInsightsPanel
-  activeTab,          // New prop
-  _scenarioProgress,  // Accept the prop to satisfy ESLint in App.js
-  overallProgress,    // New prop for progress bar
-  setActiveTab,       // New prop
-}) => {  const hasSimulationResults = Object.keys(results).length > 0; // For the simulation tab
+  _numSimulations,
+  _numEmployees,
+  _deskRatio,
+  getLlmInsights,
+  isLoadingLlm,
+  llmInsights,
+  activeTab,
+  _scenarioProgress,
+  overallProgress,
+  setActiveTab,
+}) => {
+  const hasSimulationResults = (results && Object.keys(results).length > 0) || (modeledResults && Object.keys(modeledResults).length > 0) || (empiricalResults && Object.keys(empiricalResults).length > 0);
   const weekDayNames = ["Mon", "Tue", "Wed", "Thu", "Fri"];
   const attendanceDays = [0, 1, 2, 3, 4, 5];
+
+  // Determine which results to display based on availability and view mode for charts
+  const chartDataSource = (csvEmpiricalPreferences && empiricalResults && Object.keys(empiricalResults).length > 0)
+    ? empiricalResults
+    : modeledResults;
+  
+  const chartDataViewName = (csvEmpiricalPreferences && empiricalResults && Object.keys(empiricalResults).length > 0)
+    ? "Empirical Data"
+    : "Modeled Data";
+
 
   const renderSimulationResults = () => (
     <>
@@ -71,7 +84,7 @@ const ResultsDisplayPanel = ({
             </thead>
             <tbody className="divide-y divide-gray-200">
               {Object.entries(results)
-                .filter(([_key, value]) => _key !== "Imported CSV Data" && value && (Array.isArray(value.dailyAverages) || value.dailyAverages === null)) // Already fixed, ensure it's correct
+                .filter(([_key, value]) => _key !== "Imported CSV Data" && value && (Array.isArray(value.dailyAverages) || value.dailyAverages === null))
                 .map(([scenario, resultObj]) => (
                 <tr key={scenario} className="hover:bg-gray-50 transition-colors duration-150">
                   <td className="py-3 px-4 text-gray-800 text-sm">{scenario}</td>
@@ -139,6 +152,36 @@ const ResultsDisplayPanel = ({
     </>
   );
 
+  const renderGraphsTab = () => (
+    <div className="space-y-8 py-4">
+       {!hasSimulationResults && !isLoading && (
+        <div className="flex-grow flex flex-col items-center justify-center text-center text-gray-500 p-4">
+          <p className="text-xl mb-4">Run a simulation to view graphs.</p>
+        </div>
+      )}
+      {isLoading && ( // Show progress bar whenever loading
+         <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-600 p-4">
+            <svg className="animate-spin h-10 w-10 text-indigo-500 mx-auto mb-4" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p className="text-lg font-medium mb-2">Calculating scenarios... please wait.</p>
+         </div>
+      )}
+      {!isLoading && hasSimulationResults && (
+        <>
+            <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                <PreferenceVsShortageScatterPlot results={chartDataSource} chartTitle={`Preference Deviation vs. Shortage (${chartDataViewName})`} />
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200 mt-8">
+                <AttendanceDistributionChart results={chartDataSource} chartTitle={`Attendance Distribution (${chartDataViewName})`} />
+            </div>
+        </>
+      )}
+    </div>
+  );
+
+
   return (
     <div className="bg-gray-50 p-6 rounded-xl shadow-lg border border-gray-300 flex flex-col">
       {/* Main Tab Navigation */}
@@ -148,6 +191,12 @@ const ResultsDisplayPanel = ({
           className={`flex-1 py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'simulation' ? 'border-b-2 border-indigo-700 text-indigo-700' : 'text-gray-600 hover:text-indigo-600'}`}
         >
           Simulation Results
+        </button>
+        <button
+          onClick={() => setActiveTab('graphs')} 
+          className={`flex-1 py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'graphs' ? 'border-b-2 border-green-600 text-green-600' : 'text-gray-600 hover:text-green-600'}`}
+        >
+          📊 Graphs
         </button>
         <button
           onClick={() => setActiveTab('insights')}
@@ -166,7 +215,7 @@ const ResultsDisplayPanel = ({
               <p>Adjust the parameters on the left and click &quot;Run Simulation&quot; to see the results.</p>
             </div>
           )}
-          {isLoading && ( // Show progress bar whenever loading, even if there are old results
+          {isLoading && ( 
             <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-600 p-4">
               <svg className="animate-spin h-10 w-10 text-indigo-500 mx-auto mb-4" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -185,17 +234,18 @@ const ResultsDisplayPanel = ({
           {!isLoading && hasSimulationResults && renderSimulationResults()}
         </>
       )}
+      
+      {activeTab === 'graphs' && renderGraphsTab()} {/* New Tab Content */}
 
       {activeTab === 'insights' && (
         <LlmInsightsPanel
-          // Pass all results for LLM context, not just the currently viewed one
           modeledResults={modeledResults}
           empiricalResults={empiricalResults}
           csvEmpiricalPreferences={csvEmpiricalPreferences}
           getLlmInsights={getLlmInsights}
           isLoadingLlm={isLoadingLlm}
           llmInsights={llmInsights}
-          isLoading={isLoading} // Pass main simulation loading state
+          isLoading={isLoading}
         />
       )}
     </div>
@@ -206,7 +256,7 @@ ResultsDisplayPanel.propTypes = {
   results: PropTypes.object.isRequired,
   modeledResults: PropTypes.object.isRequired,
   empiricalResults: PropTypes.object.isRequired,
-  csvEmpiricalPreferences: PropTypes.array, // Can be null or an array
+  csvEmpiricalPreferences: PropTypes.array,
   isLoading: PropTypes.bool.isRequired,
   currentViewMode: PropTypes.string.isRequired,
   setCurrentViewMode: PropTypes.func.isRequired,
@@ -224,10 +274,8 @@ ResultsDisplayPanel.propTypes = {
   setActiveTab: PropTypes.func.isRequired,
 };
 
-// Default props can be useful if some props are not always required
 ResultsDisplayPanel.defaultProps = {
   csvEmpiricalPreferences: null,
 };
-
 
 export default ResultsDisplayPanel;
