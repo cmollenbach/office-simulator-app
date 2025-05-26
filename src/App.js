@@ -21,7 +21,7 @@ const App = () => {
   const [stdDevPreference, setStdDevPreference] = useState(1.5);
   const [numSimulations, setNumSimulations] = useState(10000);
   const [dayWeights, setDayWeights] = useState([0.9, 1.1, 1.1, 1.1, 0.8]);
-  const [baselineAbsenceRate, setBaselineAbsenceRate] = useState(0.05);
+  const [baselineAbsenceRate, setBaselineAbsenceRate] = useState(0.1);
   const [csvEmpiricalPreferences, setCsvEmpiricalPreferences] = useState(null);
   const [excludedWeeksLog, setExcludedWeeksLog] = useState([]);
 
@@ -261,21 +261,61 @@ const App = () => {
   // --- END SIMULATION RUN LOGIC ---
 
   // --- START CSV IMPORT LOGIC ---
-  const processImportedData = (csvData) => {
-    // ... (existing processImportedData logic - no changes needed here for export)
-    if (!csvData || csvData.length === 0) {
-      alert("No data found in CSV or CSV is empty.");
+  const processImportedData = (rawCsvData) => {
+    if (!rawCsvData || rawCsvData.length < 2) { // Need at least header + 1 data row
+      alert("No data found in CSV. The file might be empty or contain only a header row.");
       return;
     }
+
+    // First row is header, actual data starts from the second row.
+    const csvDataWithoutHeader = rawCsvData.slice(1);
+    if (csvDataWithoutHeader.length === 0) {
+      alert("CSV contains only a header row. No data to process.");
+      return;
+    }
+
     const weeklyData = {};
-    csvData.forEach(row => {
-      if (row.length < 3 || typeof row[0] !== 'string' || typeof row[1] !== 'number' || typeof row[2] !== 'number') {
-        console.warn("Skipping invalid CSV row:", row);
+    csvDataWithoutHeader.forEach((row, dataIndex) => {
+      const originalRowNumber = dataIndex + 2; // For user-friendly logging (1-based, includes header)
+
+      // New CSV structure:
+      // Col 1 (index 0): Ignored
+      // Col 2 (index 1): Number of days (Days In Office)
+      // Col 3 (index 2): Date specifying the week (Week of Dates)
+      // Col 4 (index 3): Ignored
+      // Col 5 (index 4): Attendance number (Distinct count of UserID)
+
+      if (!Array.isArray(row) || row.length < 3) { // Need at least up to "Week of Dates" (index 2)
+        console.warn(`Skipping row ${originalRowNumber}: Insufficient columns or not an array. Row:`, row);
         return;
       }
-      const weekIdentifier = row[0];
-      const daysAttended = row[1];
-      const peopleCount = row[2];
+
+      const daysAttendedRaw = row[1]; // From 2nd column
+      const weekIdentifierRaw = row[2]; // From 3rd column
+
+      let daysAttended;
+      if (typeof daysAttendedRaw === 'number' && daysAttendedRaw >= 0 && daysAttendedRaw <= DAYS_IN_WORK_WEEK) {
+        daysAttended = Math.round(daysAttendedRaw);
+      } else {
+        console.warn(`Skipping row ${originalRowNumber}: Invalid or missing 'Days In Office' (column 2). Expected a number 0-5. Got: '${daysAttendedRaw}'. Row:`, row);
+        return;
+      }
+
+      if (typeof weekIdentifierRaw !== 'string' || weekIdentifierRaw.trim() === '') {
+        console.warn(`Skipping row ${originalRowNumber}: Invalid or missing 'Week of Dates' (column 3). Expected a non-empty string. Got: '${weekIdentifierRaw}'. Row:`, row);
+        return;
+      }
+      const weekIdentifier = weekIdentifierRaw.trim();
+
+      let peopleCount = 0; // Default to 0
+      if (row.length > 4) { // Check if 5th column exists
+        const peopleCountRaw = row[4];
+        if (typeof peopleCountRaw === 'number' && peopleCountRaw >= 0) {
+          peopleCount = Math.round(peopleCountRaw);
+        } else if (peopleCountRaw !== null && peopleCountRaw !== undefined && String(peopleCountRaw).trim() !== '') {
+          console.warn(`Warning for row ${originalRowNumber}: Invalid 'Attendance Number' (column 5). Got: '${peopleCountRaw}'. Defaulting to 0. Row:`, row);
+        }
+      }
 
       if (!weeklyData[weekIdentifier]) {
         weeklyData[weekIdentifier] = {

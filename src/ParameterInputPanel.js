@@ -58,7 +58,7 @@ const ParameterInputPanel = ({
   };
 
   return (
-    <div className="bg-beachSand p-6 rounded-xl shadow-lg border border-mistBlue flex flex-col">
+    <div className="bg-[#EBEBE6] p-6 rounded-xl shadow-lg border border-mistBlue flex flex-col">
       <h2 className="text-2xl font-bold text-signatureBlue mb-6 pb-3 text-center border-b-2 border-mistBlue">Parameters</h2>
       <div className="space-y-4">
         <fieldset className="border border-desertSand p-4 rounded-md">
@@ -199,8 +199,8 @@ const ParameterInputPanel = ({
             className="hidden"
           />
           <p className="text-xs text-gray-500 mt-1 italic">
-            CSV format: Date, DaysAttended (0-5), UniquePeopleCount.
-            Ensure data reflects discretionary attendance if using Baseline Absence Rate for adjustments.
+            CSV format: Header row, then data rows. Col 2: Days In Office (0-5), Col 3: Week Date (text), Col 5: Attendance Count.
+            Other columns are ignored. Ensure data reflects discretionary attendance if using Baseline Absence Rate for adjustments.
           </p>
         </fieldset>
       </div>

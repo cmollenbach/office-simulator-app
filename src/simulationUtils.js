@@ -2,11 +2,11 @@
 
 export const SCENARIO_NAMES = [
   "1) No rules",
-  "2) Min 2 days/week, no max",
-  "3) Min 2 days/week, max 4 days/week",
-  "4) Min 3 days/week, no max",
-  "5) Min 3 days/week, max 4 days/week",
-  "6) Exactly 3 days/week",
+  "2) Min 2, no max",
+  "3) Min 2, max 4",
+  "4) Min 3, no max",
+  "5) Min 3, max 4",
+  "6) Exactly 3", // Shortened for consistency
 ];
 
 export const DAYS_IN_WORK_WEEK = 5;
@@ -15,11 +15,11 @@ export const DAYS_IN_WORK_WEEK = 5;
 // This makes the worker more self-contained and testable with rules directly.
 export const SCENARIO_RULES = {
   "1) No rules": {},
-  "2) Min 2 days/week, no max": { min: 2 },
-  "3) Min 2 days/week, max 4 days/week": { min: 2, max: 4 },
-  "4) Min 3 days/week, no max": { min: 3 },
-  "5) Min 3 days/week, max 4 days/week": { min: 3, max: 4 },
-  "6) Exactly 3 days/week": { exactly: 3 },
+  "2) Min 2, no max": { min: 2 },
+  "3) Min 2, max 4": { min: 2, max: 4 },
+  "4) Min 3, no max": { min: 3 },
+  "5) Min 3, max 4": { min: 3, max: 4 },
+  "6) Exactly 3": { exactly: 3 }, // Key updated to match SCENARIO_NAMES
 };
 
 // Helper function to generate a random number from a standard normal distribution (mean 0, std dev 1)

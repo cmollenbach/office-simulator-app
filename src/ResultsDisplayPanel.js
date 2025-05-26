@@ -65,9 +65,11 @@ const ResultsDisplayPanel = ({
           <table className="min-w-full bg-white rounded-md overflow-hidden">
             <thead className="bg-oceanBlue text-white">
               <tr>
-                <th className="py-3 px-4 text-left text-sm font-semibold">Scenario</th>
+                <Tippy content="Policy rules (Min, Max, Exactly) refer to days/week for active staff.">
+                  <th className="py-3 px-4 text-left text-sm font-semibold">Scenario</th>
+                </Tippy>
                 <Tippy content="Avg. employees without a desk per day." placement="top">
-                  <th className="py-3 px-4 text-center text-sm font-semibold">
+                  <th className="py-3 px-4 text-center text-sm font-semibold cursor-help">
                     Avg Shortage
                   </th>
                 </Tippy>
@@ -112,9 +114,11 @@ const ResultsDisplayPanel = ({
             <table className="min-w-full bg-white rounded-md overflow-hidden"> {/* Table itself is white */}
               <thead className="bg-oceanBlue text-white">
                 <tr>
-                  <th className="py-3 px-4 text-left text-sm font-semibold">Source / Scenario</th>
+                  <Tippy content="Policy rules (Min, Max, Exactly) in scenarios refer to days/week for active staff.">
+                    <th className="py-3 px-4 text-left text-sm font-semibold">Source / Scenario</th>
+                  </Tippy>
                   {attendanceDays.map(days => (
-                    <th key={days} className="py-3 px-2 text-center text-sm font-semibold">{days} Day{days === 1 ? '' : 's'}</th>
+                    <th key={days} className="py-3 px-2 text-center text-sm font-semibold">{days} day{days === 1 ? '' : 's'}</th>
                   ))}
                 </tr>
               </thead>
