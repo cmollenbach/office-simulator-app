@@ -46,24 +46,24 @@ const ResultsDisplayPanel = ({
         <div className="mb-4 flex border-b border-gray-300">
           <button
             onClick={() => setCurrentViewMode('modeled')}
-            className={`flex-1 py-2 px-4 text-center text-sm font-medium transition-colors focus:outline-none ${currentViewMode === 'modeled' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex-1 py-2 px-4 text-center text-sm font-medium transition-colors focus:outline-none ${currentViewMode === 'modeled' ? 'border-b-2 border-actionBlue text-actionBlue' : 'text-gray-500 hover:text-gray-700'}`}
           >
             Modeled View (Normal Dist.)
           </button>
           <button
             onClick={() => setCurrentViewMode('empirical')}
-            className={`flex-1 py-2 px-4 text-center text-sm font-medium transition-colors focus:outline-none ${currentViewMode === 'empirical' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex-1 py-2 px-4 text-center text-sm font-medium transition-colors focus:outline-none ${currentViewMode === 'empirical' ? 'border-b-2 border-actionBlue text-actionBlue' : 'text-gray-500 hover:text-gray-700'}`}
           >
             Empirical View (CSV Based)
           </button>
         </div>
       )}
 
-      <h2 className="text-xl font-semibold text-indigo-700 mb-2 pb-3 text-center border-b-2 border-indigo-100">Weekly Simulation: Daily Seat Shortage & Metrics</h2>
+      <h2 className="text-xl font-semibold text-signatureBlue mb-2 pb-3 text-center border-b-2 border-mistBlue">Weekly Simulation: Daily Seat Shortage & Metrics</h2>
       <div className="space-y-6 flex-grow">
-        <div className="overflow-x-auto rounded-md shadow-lg border border-gray-200">
+        <div className="overflow-x-auto rounded-md shadow-lg border border-mistBlue">
           <table className="min-w-full bg-white rounded-md overflow-hidden">
-            <thead className="bg-indigo-600 text-white">
+            <thead className="bg-oceanBlue text-white">
               <tr>
                 <th className="py-3 px-4 text-left text-sm font-semibold">Scenario</th>
                 <Tippy content="Avg. employees without a desk per day." placement="top">
@@ -106,11 +106,11 @@ const ResultsDisplayPanel = ({
           </table>
         </div>
 
-        <div className="bg-gray-50 p-4 rounded-md shadow-lg border border-gray-200 mt-6">
-          <h3 className="text-xl font-semibold text-indigo-700 mb-4 text-center border-b-2 border-indigo-100 pb-3">Attendance Distribution Comparison (% of Employees)</h3>
+        <div className="bg-white p-4 rounded-md shadow-lg border border-mistBlue mt-6"> {/* Changed bg-gray-50 to bg-white for consistency with graph cards */}
+          <h3 className="text-xl font-semibold text-signatureBlue mb-4 text-center border-b-2 border-mistBlue pb-3">Attendance Distribution Comparison (% of Employees)</h3>
           <div className="overflow-x-auto">
-            <table className="min-w-full bg-white rounded-md overflow-hidden">
-              <thead className="bg-indigo-600 text-white">
+            <table className="min-w-full bg-white rounded-md overflow-hidden"> {/* Table itself is white */}
+              <thead className="bg-oceanBlue text-white">
                 <tr>
                   <th className="py-3 px-4 text-left text-sm font-semibold">Source / Scenario</th>
                   {attendanceDays.map(days => (
@@ -159,8 +159,8 @@ const ResultsDisplayPanel = ({
         </div>
       )}
       {isLoading && (
-         <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-600 p-4">
-            <svg className="animate-spin h-10 w-10 text-indigo-500 mx-auto mb-4" viewBox="0 0 24 24">
+         <div className="flex-grow flex flex-col items-center justify-center text-center text-skyBlue p-4">
+            <svg className="animate-spin h-10 w-10 text-skyBlue mx-auto mb-4" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
@@ -187,19 +187,19 @@ const ResultsDisplayPanel = ({
         <div className="flex">
             <button
             onClick={() => setActiveTab('simulation')}
-            className={`py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'simulation' ? 'border-b-2 border-indigo-700 text-indigo-700' : 'text-gray-600 hover:text-indigo-600'}`}
+            className={`py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'simulation' ? 'border-b-2 border-actionBlue text-actionBlue' : 'text-gray-600 hover:text-oceanBlue'}`}
             >
             Simulation Results
             </button>
             <button
             onClick={() => setActiveTab('graphs')} 
-            className={`py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'graphs' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:text-blue-600'}`}
+            className={`py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'graphs' ? 'border-b-2 border-actionBlue text-actionBlue' : 'text-gray-600 hover:text-oceanBlue'}`}
             >
             📊 Graphs
             </button>
             <button
             onClick={() => setActiveTab('insights')}
-            className={`py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'insights' ? 'border-b-2 border-sky-600 text-sky-600' : 'text-gray-600 hover:text-sky-600'}`}
+            className={`py-2 px-4 text-center text-lg font-semibold transition-colors focus:outline-none ${activeTab === 'insights' ? 'border-b-2 border-actionBlue text-actionBlue' : 'text-gray-600 hover:text-oceanBlue'}`}
             >
             ✨ Policy Insights
             </button>
@@ -209,7 +209,7 @@ const ResultsDisplayPanel = ({
           {!isLoading && hasSimulationResults && (
             <button
               onClick={onExportToExcel}
-              className="ml-4 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-3 rounded-md text-sm shadow transition-colors duration-150 ease-in-out"
+              className="ml-4 bg-actionBlue hover:bg-oceanBlue text-white font-semibold py-2 px-3 rounded-md text-sm shadow transition-colors duration-150 ease-in-out"
               title="Export parameters and results to Excel"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline-block mr-1.5 -mt-0.5" viewBox="0 0 20 20" fill="currentColor">
@@ -232,15 +232,15 @@ const ResultsDisplayPanel = ({
             </div>
           )}
           {isLoading && ( 
-            <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-600 p-4">
-              <svg className="animate-spin h-10 w-10 text-indigo-500 mx-auto mb-4" viewBox="0 0 24 24">
+            <div className="flex-grow flex flex-col items-center justify-center text-center text-skyBlue p-4">
+              <svg className="animate-spin h-10 w-10 text-skyBlue mx-auto mb-4" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
               <p className="text-lg font-medium mb-2">Calculating scenarios... please wait.</p>
               <div className="w-full max-w-md bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
                 <div
-                  className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                  className="bg-actionBlue h-2.5 rounded-full transition-all duration-300 ease-out"
                   style={{ width: `${overallProgress}%` }}
                 ></div>
               </div>

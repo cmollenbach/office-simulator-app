@@ -29,8 +29,8 @@ const LlmInsightsPanel = ({
       {canGenerateInsights ? (
         <>
           {isLoadingLlm && (
-            <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-600 p-6 bg-white rounded-xl shadow-lg border border-gray-200">
-              <svg className="animate-spin h-8 w-8 text-indigo-500 mx-auto mb-3" viewBox="0 0 24 24">
+            <div className="flex-grow flex flex-col items-center justify-center text-center text-skyBlue p-6 bg-white rounded-xl shadow-lg border border-mistBlue">
+              <svg className="animate-spin h-8 w-8 text-skyBlue mx-auto mb-3" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
@@ -39,7 +39,7 @@ const LlmInsightsPanel = ({
           )}
           {!isLoadingLlm && llmInsights && (
             // This is the "white one", now with more prominent styling
-            <div className="w-full bg-white p-6 rounded-xl shadow-lg border border-gray-200 text-gray-800 flex-grow overflow-y-auto">
+            <div className="w-full bg-white p-6 rounded-xl shadow-lg border border-mistBlue text-gray-800 flex-grow overflow-y-auto">
               {/* Inner div for prose typography styling with our custom class */}
               <div className="w-full prose prose-sm max-w-none custom-prose-full-width">
                 <ReactMarkdown>{llmInsights}</ReactMarkdown>
@@ -47,13 +47,13 @@ const LlmInsightsPanel = ({
             </div>
           )}
           {!isLoadingLlm && !llmInsights && canGenerateInsights && ( // Shown if insights can be generated but haven't been (and not loading)
-             <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-500 p-6 bg-white rounded-xl shadow-lg border border-gray-200">
+             <div className="flex-grow flex flex-col items-center justify-center text-center text-skyBlue p-6 bg-white rounded-xl shadow-lg border border-mistBlue">
                 <p>Policy insights will be generated here based on the simulation results.</p>
             </div>
           )}
         </>
       ) : (
-        <div className="flex-grow flex flex-col items-center justify-center text-center text-indigo-500 p-6 bg-white rounded-xl shadow-lg border border-gray-200">
+        <div className="flex-grow flex flex-col items-center justify-center text-center text-skyBlue p-6 bg-white rounded-xl shadow-lg border border-mistBlue">
           <p>Run a simulation to generate policy insights.</p>
         </div>
       )}

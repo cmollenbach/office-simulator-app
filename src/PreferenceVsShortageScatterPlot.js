@@ -116,7 +116,7 @@ const PreferenceVsShortageScatterPlot = ({ results, chartTitle }) => {
       .attr('cx', d => xScale(d.deviation))
       .attr('cy', d => yScale(d.shortage))
       .attr('r', 7)
-      .style('fill', '#6366F1') // Tailwind indigo-500
+      .style('fill', '#4673C3') // skyBlue
       .style('opacity', 0.7)
       .attr('data-tippy-content', d => `Scenario: ${d.name}<br>Shortage: ${d.shortage.toFixed(1)}<br>Deviation: ${d.deviation.toFixed(2)}`)
       .on('mouseover', function () { // Removed event and d as they are not used here anymore

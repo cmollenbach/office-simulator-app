@@ -78,10 +78,18 @@ const AttendanceDistributionChart = ({ results, chartTitle }) => {
 
     const colorScale = d3.scaleOrdinal()
       .domain(days)
-      // Use a 6-step blue color scheme, reversed to go from dark to light
-      // d3.schemeBlues[6] provides 6 shades from lightest to darkest.
-      // .slice() creates a copy before reversing, to not mutate the original scheme array.
-      .range(d3.schemeBlues[6].slice().reverse()); 
+      // Custom color scheme using the new palette, ordered darkest to lightest for the stack
+      // (assuming default stack order is bottom to top, and legend order matches visual stack)
+      .range([
+        '#002346', // signatureBlue (darkest)
+        '#003778', // oceanBlue
+        '#4673C3', // skyBlue
+        '#0069FA', // actionBlue (vibrant mid-tone)
+        '#87AAE1', // iceBlue
+        '#B9C8E6'  // mistBlue (lightest)
+      ]);
+      // Note: The original d3.schemeBlues[6].slice().reverse() resulted in darkest at the bottom of the stack.
+      // This new range should achieve a similar effect with the custom colors.
 
     // Axes
     svg.append('g')

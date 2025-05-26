@@ -567,8 +567,8 @@ Simulations will now run with both 'Modeled' and 'Empirical' (from CSV) preferen
 
       // Apply text wrapping to the cell A2 (where llmInsights content is placed)
       const insightsCellAddress = 'A2';
-      if (wsInsights[insightsCellAddress] && typeof wsInsights[insightsCellAddress].v === 'string' && wsInsights[insightsCellAddress].v.length > 0) { // Check if cell exists and has content
-        const cell = wsInsights[insightsCellAddress];
+    if (wsInsights[insightsCellAddress] && typeof wsInsights[insightsCellAddress].v === 'string' && wsInsights[insightsCellAddress].v.length > 0) { // Check if cell exists and has content
+     const cell = wsInsights[insightsCellAddress];
         // Ensure the style object 's' exists
         if (!cell.s) {
           cell.s = {};
@@ -596,10 +596,10 @@ Simulations will now run with both 'Modeled' and 'Empirical' (from CSV) preferen
     ]);
   // --- END EXCEL EXPORT LOGIC ---
 
-  return (
-    <div className="min-h-screen bg-gray-100 p-4 sm:p-8 font-sans flex flex-col items-center">
+  return ( // Removed the extra wrapping div
+    <div className="min-h-screen bg-lightSand p-4 sm:p-8 font-sans flex flex-col items-center">
       <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-6xl">
-        <h1 className="text-4xl font-bold text-indigo-700 mb-10 pb-6 text-center border-b-2 border-indigo-100">Office Seat Utilization Simulator</h1>
+        <h1 className="text-4xl font-bold text-signatureBlue mb-10 pb-6 text-center border-b-2 border-mistBlue">Office Seat Utilization Simulator</h1>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           <div className="lg:col-span-1">
             <ParameterInputPanel
@@ -648,7 +648,7 @@ Simulations will now run with both 'Modeled' and 'Empirical' (from CSV) preferen
           </div>
         </div>
       </div>
-    </div>
+    </div> 
   );
 };
 

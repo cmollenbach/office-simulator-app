@@ -7,6 +7,20 @@ module.exports = {
   ],
   theme: {
     extend: {
+      colors: {
+        signatureBlue: '#002346',
+        actionBlue: '#0069FA',
+        oceanBlue: '#003778', // Was Blue 1
+        skyBlue: '#4673C3',   // Was Blue 2
+        iceBlue: '#87AAE1',   // Was Blue 3
+        mistBlue: '#B9C8E6',  // Was Blue 4
+
+        desertSand: '#968C73', // Was Sand 1
+        beachSand: '#CDC8B4',  // Was Sand 2
+        lightSand: '#EBEBE6',  // Was Sand 3
+        // White: '#FFFFFF' is a default Tailwind color
+      },
+
       typography: ({ theme }) => ({
         DEFAULT: { // This targets the base .prose class
           css: {

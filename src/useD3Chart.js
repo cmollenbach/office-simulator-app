@@ -92,7 +92,7 @@ const useD3Chart = (results) => {
       .attr("y", d => y(d.value))
       .attr("width", x.bandwidth())
       .attr("height", d => height - y(d.value))
-      .attr("fill", "#6366F1") // Tailwind indigo-500
+      .attr("fill", "#4673C3") // skyBlue
       .attr("rx", 6) // Rounded corners for bars
       .attr("ry", 6);
 
